@@ -52,7 +52,7 @@ while True:
     if masks is not None:
         show_mask(masks, plt.gca())
         show_points(np.array(input_points), np.array(input_labels), plt.gca())
-
+        plt.draw()
     # 读取输入的点
     points = plt.ginput(n=2, timeout=-1)
     if not points:
