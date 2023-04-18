@@ -3,7 +3,6 @@ from segment_anything import sam_model_registry, SamPredictor
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2
-from pycocotools.mask import encode
 
 
 def show_points(coords, labels, ax, marker_size=375):
@@ -70,12 +69,6 @@ def get_mask(image: np.ndarray):
             multimask_output=False,
         )
     return mask[0]
-
-
-def encode_mask(mask: np.ndarray):
-    fortran_binary_mask = np.asfortranarray(mask)
-    encoded_mask = encode(fortran_binary_mask)
-    return encoded_mask
 
 
 if __name__ == '__main__':
