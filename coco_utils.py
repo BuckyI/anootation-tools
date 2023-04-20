@@ -1,6 +1,10 @@
+import pycocotools.mask as mask_utils
 from pycocotools.mask import encode
 import numpy as np
 import cv2
+import json
+import os
+import datetime
 
 
 def encode_mask(mask: np.ndarray):
@@ -39,3 +43,64 @@ def parse_mask_to_coco(image_id, anno_id, image_mask, category_id):
     }
     return annotation
 
+
+def create_ann_file(image_dir, annotation_path='annotation.json'):
+    image_files = os.listdir(image_dir)
+
+    coco_data = {
+        "info": {},
+        "licenses": [],
+        "images": [],
+        "categories": [],
+        "annotations": [],
+    }
+
+    # info
+    formatted_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+    coco_data["info"] = {
+        "year": 2023,
+        "version": None,
+        "contributor": 'Zhang & Wang',
+        "description": 'sick leaves :)',
+        "url": None,
+        "date_created": formatted_time
+    }
+
+    # licenses
+    coco_data["licenses"] = [
+        {
+            "id": 0,
+            "name": None,
+            "url": None,
+        }
+    ]
+
+    # images
+    for image_id, image_file in enumerate(image_files):
+        # 获取图像信息
+        image_path = os.path.join(image_dir, image_file)
+        image = cv2.imread(image_path)
+        height, width, channels = image.shape
+        # 添加图像信息到 coco 数据集字典中
+        coco_data["images"].append({
+            "id": image_id,
+            "width": width,
+            "height": height,
+            "file_name": image_file,
+            "license": None,
+            "url": None,
+            "date_captured": None
+        })
+
+    # categories
+    coco_data["categories"] = [
+        {
+            "id": 1,
+            "name": "dot",
+            "supercategory": None,
+        }
+    ]
+
+    if os.path.exists(annotation_path):
+        print("already exists, removed the old one")
+    json.dump(coco_data, open(annotation_path, 'w'))
