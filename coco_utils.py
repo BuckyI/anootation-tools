@@ -8,8 +8,13 @@ import datetime
 
 
 def encode_mask(mask: np.ndarray):
+    """
+    Encode a binary mask using RLE. (bool array)
+    It's ok if the mask is 0 or 255 (8 bit images)
+    """
     fortran_binary_mask = np.asfortranarray(mask)
     encoded_mask = encode(fortran_binary_mask)
+    encoded_mask['counts'] = str(encoded_mask['counts'], 'utf-8')
     return encoded_mask
 
 
@@ -27,10 +32,7 @@ def bounding_box_from_mask(mask: np.ndarray):
 
 def parse_mask_to_coco(image_id, anno_id, image_mask, category_id):
     x, y, width, height = bounding_box_from_mask(image_mask)
-
-    fortran_binary_mask = np.asfortranarray(image_mask)
-    encoded_mask = encode(fortran_binary_mask)
-    encoded_mask['counts'] = str(encoded_mask['counts'], 'utf-8')
+    encoded_mask = encode_mask(image_mask)
 
     annotation = {
         "id": anno_id,
