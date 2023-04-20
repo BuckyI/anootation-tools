@@ -1,10 +1,24 @@
 import pycocotools.mask as mask_utils
-from pycocotools.mask import encode
+from pycocotools.mask import encode, decode
 import numpy as np
 import cv2
 import json
 import os
 import datetime
+
+
+def file2mask(path: str):
+    "load binary mask from image file"
+    mask = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
+    if mask is None:
+        raise ValueError("mask is None, check your file: {}".format(path))
+    return mask > 0
+
+
+def mask2file(mask: np.ndarray, path: str = 'example.jpg'):
+    "save binary mask to image file"
+    img_mask = mask.astype(np.uint8) * 255
+    cv2.imwrite(path, img_mask)
 
 
 def encode_mask(mask: np.ndarray):
