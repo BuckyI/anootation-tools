@@ -126,3 +126,30 @@ def create_ann_file(image_dir, annotation_path='annotation.json', match='*.jpg')
     if os.path.exists(annotation_path):
         print("already exists, removed the old one")
     json.dump(coco_data, open(annotation_path, 'w'))
+
+
+def merge_annotations(dir):
+    """merge annotations from multiple mask files
+    NOTE: follow the standard file structure!
+    """
+    # load annotation file
+    ann_file = os.path.join(dir, 'annotation.json')
+    data = json.load(open(ann_file))
+    annotations = data['annotations']
+    assert len(annotations) == 0, f'{ann_file} have annotations, check it'
+
+    # get annotations from mask images
+    for image in data['images']:
+        name = image['file_name']
+        mask_path = os.path.join(dir, 'masks', name).replace("\\", "/")
+        assert os.path.exists(mask_path), f"{name} don't have a mask!"
+        mask = file2mask(mask_path)
+
+        annotation = parse_mask_to_coco(image_id=image['id'],
+                                        anno_id=len(annotations),
+                                        image_mask=mask,
+                                        category_id=1)
+        annotations.append(annotation)
+    else:
+        # data['annotations'] = annotations
+        json.dump(data, open(ann_file, 'w'))
