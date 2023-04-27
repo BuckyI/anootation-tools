@@ -96,7 +96,7 @@ def resize_image(image, max_height, max_width):
 
 
 class Annotator:
-    def __init__(self, image_dir: str, annotation: str):
+    def __init__(self, image_dir: str, annotation: str = None):
         # 加载模型
         sam_checkpoint = "assets/sam_vit_b_01ec64.pth"
         model_type = "vit_b"
@@ -105,6 +105,9 @@ class Annotator:
         self.predictor = SamPredictor(sam)
 
         # annotation settings
+        if annotation is None:
+            annotation = os.path.join(image_dir, "annotation.json")
+            coco_utils.create_ann_file(image_dir, annotation)
         self.annotation = COCO(annotation)
         self.image_dir = image_dir
 
