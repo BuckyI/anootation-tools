@@ -15,9 +15,12 @@ def file2mask(path: str):
     return mask > 0
 
 
-def mask2file(mask: np.ndarray, path: str = 'example.jpg'):
+def mask2file(mask: np.ndarray, path: str = 'example.jpg', bool2int=True, size=None):
     "save binary mask to image file"
-    img_mask = mask.astype(np.uint8) * 255
+    # 将 bool 转换为 int 图片矩阵
+    img_mask = mask.astype(np.uint8) * 255 if bool2int else mask
+    if size is not None:
+        img_mask = cv2.resize(img_mask, size, cv2.INTER_CUBIC)
     # 保证目标文件夹存在
     os.makedirs(os.path.dirname(path), exist_ok=True)
     if os.path.exists(path):

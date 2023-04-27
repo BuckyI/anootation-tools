@@ -77,6 +77,23 @@ def get_mask(image: np.ndarray, predictor: SamPredictor = None):
     return mask[0]
 
 
+def resize_image(image, max_height, max_width):
+    """
+    将图片大小缩放到不超过指定的最大高度和宽度，并返回缩放比例。
+    """
+    height, width = image.shape[:2]
+    if height > max_height or width > max_width:
+        scale = min(max_height / height, max_width / width)
+        new_height = int(height * scale)
+        new_width = int(width * scale)
+        resized_image = cv2.resize(image, (new_width, new_height))
+    else:
+        scale = 1.0
+        resized_image = image.copy()
+
+    return resized_image, scale
+
+
 class Annotator:
     def __init__(self, image_dir: str, annotation: str):
         # 加载模型
@@ -102,20 +119,27 @@ class Annotator:
                 print("drop this mask")
                 self.current_mask_ok = False
 
+        # load image
         image = load_image(os.path.join(self.image_dir, filename))
+        small_image, _ = resize_image(image, 800, 800)  # 使用小尺寸图片标注
+
+        # get mask
         self.current_mask_ok = False
         while(not self.current_mask_ok):
-            mask = get_mask(image, predictor=self.predictor)
+            mask = get_mask(small_image, predictor=self.predictor)
             # confirm if mask is ok
+            self.current_mask_ok = True
             plt.close()
-            plt.imshow(image)
+            plt.imshow(small_image)
             plt.axis('on')
             show_mask(mask, plt.gca())
             plt.connect('button_press_event', lambda e: click_save(self, e))
             plt.show()
-            print(self.current_mask_ok, 'finally')
         else:  # finally save the good mask
-            coco_utils.mask2file(mask, self.mask_path(filename))
+            # resize the mask to the original image size
+            size = (image.shape[1], image.shape[0])
+            coco_utils.mask2file(mask, self.mask_path(
+                filename), size=size)
             print("saved to {}".format(self.mask_path(filename)))
 
     def search_unannotated_images(self):
@@ -134,5 +158,3 @@ class Annotator:
 
 if __name__ == '__main__':
     s = Annotator("images", "annotation.json").annotate_images()
-
-
