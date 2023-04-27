@@ -164,5 +164,6 @@ class Annotator:
 
 
 if __name__ == '__main__':
-    s = Annotator("images").annotate_images()
-    coco_utils.merge_annotations("images")
+    workdir = 'demo_images'
+    s = Annotator(workdir).annotate_images()
+    coco_utils.merge_annotations(workdir)
