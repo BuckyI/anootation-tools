@@ -60,12 +60,13 @@ def get_mask(image: np.ndarray, predictor: SamPredictor = None):
                         np.array(input_labels), plt.gca(), marker_size=80)
             plt.draw()
         # 读取输入的点
-        points = plt.ginput(n=2, timeout=-1)
+        # usage: input point(s), the last one is negetive
+        points = plt.ginput(n=-1, timeout=-1)
         if not points:
             print("finished")
             break
         input_points.extend(points)
-        input_labels.extend([1, 0])
+        input_labels.extend([1] * (len(points) - 1) + [0])
 
         # get mask
         mask, __, logits = predictor.predict(
