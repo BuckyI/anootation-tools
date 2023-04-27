@@ -4,6 +4,7 @@ import numpy as np
 import cv2
 import json
 import os
+from pathlib import Path
 import datetime
 
 
@@ -67,9 +68,7 @@ def parse_mask_to_coco(image_id, anno_id, image_mask, category_id):
     return annotation
 
 
-def create_ann_file(image_dir, annotation_path='annotation.json'):
-    image_files = os.listdir(image_dir)
-
+def create_ann_file(image_dir, annotation_path='annotation.json', match='*.jpg'):
     coco_data = {
         "info": {},
         "licenses": [],
@@ -99,17 +98,17 @@ def create_ann_file(image_dir, annotation_path='annotation.json'):
     ]
 
     # images
-    for image_id, image_file in enumerate(image_files):
+    images = list(Path(image_dir).glob(match))
+    for image_id, image in enumerate(images):
         # 获取图像信息
-        image_path = os.path.join(image_dir, image_file)
-        image = cv2.imread(image_path)
-        height, width, channels = image.shape
+        image_path = str(image)
+        height, width, channels = cv2.imread(image_path).shape
         # 添加图像信息到 coco 数据集字典中
         coco_data["images"].append({
             "id": image_id,
             "width": width,
             "height": height,
-            "file_name": image_file,
+            "file_name": image.name,
             "license": None,
             "url": None,
             "date_captured": None
