@@ -16,3 +16,8 @@ graph LR
 1-->|encode_mask|3[RLE]
 3-->4[annotation]
 ```
+
+假设指定图片文件夹为 "images"，约定标注时的文件结构：
+- 图片都直接位于 "images" 且后缀名为".jpg"
+- 标注文件在 `images/annotation.json` 处生成，标注文件内图片的 filename 只包括文件名
+- png mask 存放于 `images/mask`
