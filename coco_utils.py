@@ -16,7 +16,7 @@ def file2mask(path: str):
     return mask > 0
 
 
-def mask2file(mask: np.ndarray, path: str = 'example.jpg', bool2int=True, size=None):
+def mask2file(mask: np.ndarray, path: str = "example.jpg", bool2int=True, size=None):
     "save binary mask to image file"
     # 将 bool 转换为 int 图片矩阵
     img_mask = mask.astype(np.uint8) * 255 if bool2int else mask
@@ -36,14 +36,13 @@ def encode_mask(mask: np.ndarray):
     """
     fortran_binary_mask = np.asfortranarray(mask)
     encoded_mask = encode(fortran_binary_mask)
-    encoded_mask['counts'] = str(encoded_mask['counts'], 'utf-8')
+    encoded_mask["counts"] = str(encoded_mask["counts"], "utf-8")
     return encoded_mask
 
 
 def bounding_box_from_mask(mask: np.ndarray):
     mask = mask.astype(np.uint8)
-    contours, hierarchy = cv2.findContours(
-        mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     all_contours = []
     for contour in contours:
         all_contours.extend(contour)
@@ -68,7 +67,7 @@ def parse_mask_to_coco(image_id, anno_id, image_mask, category_id):
     return annotation
 
 
-def create_ann_file(image_dir, annotation_path='annotation.json', match='*.jpg'):
+def create_ann_file(image_dir, annotation_path="annotation.json", match="*.jpg"):
     coco_data = {
         "info": {},
         "licenses": [],
@@ -82,10 +81,10 @@ def create_ann_file(image_dir, annotation_path='annotation.json', match='*.jpg')
     coco_data["info"] = {
         "year": 2023,
         "version": None,
-        "contributor": 'Zhang & Wang',
-        "description": 'sick leaves :)',
+        "contributor": "Zhang & Wang",
+        "description": "sick leaves :)",
         "url": None,
-        "date_created": formatted_time
+        "date_created": formatted_time,
     }
 
     # licenses
@@ -104,15 +103,17 @@ def create_ann_file(image_dir, annotation_path='annotation.json', match='*.jpg')
         image_path = str(image)
         height, width, channels = cv2.imread(image_path).shape
         # 添加图像信息到 coco 数据集字典中
-        coco_data["images"].append({
-            "id": image_id,
-            "width": width,
-            "height": height,
-            "file_name": image.name,
-            "license": None,
-            "url": None,
-            "date_captured": None
-        })
+        coco_data["images"].append(
+            {
+                "id": image_id,
+                "width": width,
+                "height": height,
+                "file_name": image.name,
+                "license": None,
+                "url": None,
+                "date_captured": None,
+            }
+        )
 
     # categories
     coco_data["categories"] = [
@@ -125,7 +126,7 @@ def create_ann_file(image_dir, annotation_path='annotation.json', match='*.jpg')
 
     if os.path.exists(annotation_path):
         print("already exists, removed the old one")
-    json.dump(coco_data, open(annotation_path, 'w'))
+    json.dump(coco_data, open(annotation_path, "w"))
 
 
 def merge_annotations(dir):
@@ -133,23 +134,25 @@ def merge_annotations(dir):
     NOTE: follow the standard file structure!
     """
     # load annotation file
-    ann_file = os.path.join(dir, 'annotation.json')
+    ann_file = os.path.join(dir, "annotation.json")
     data = json.load(open(ann_file))
-    annotations = data['annotations']
-    assert len(annotations) == 0, f'{ann_file} have annotations, check it'
+    annotations = data["annotations"]
+    assert len(annotations) == 0, f"{ann_file} have annotations, check it"
 
     # get annotations from mask images
-    for image in data['images']:
-        name = image['file_name']
-        mask_path = os.path.join(dir, 'masks', name).replace("\\", "/")
+    for image in data["images"]:
+        name = image["file_name"]
+        mask_path = os.path.join(dir, "masks", name).replace("\\", "/")
         assert os.path.exists(mask_path), f"{name} don't have a mask!"
         mask = file2mask(mask_path)
 
-        annotation = parse_mask_to_coco(image_id=image['id'],
-                                        anno_id=len(annotations),
-                                        image_mask=mask,
-                                        category_id=1)
+        annotation = parse_mask_to_coco(
+            image_id=image["id"],
+            anno_id=len(annotations),
+            image_mask=mask,
+            category_id=1,
+        )
         annotations.append(annotation)
     else:
         # data['annotations'] = annotations
-        json.dump(data, open(ann_file, 'w'))
+        json.dump(data, open(ann_file, "w"))
