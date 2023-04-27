@@ -147,13 +147,16 @@ class Annotator:
             print("saved to {}".format(self.mask_path(filename)))
 
     def search_unannotated_images(self):
-        for filename in os.listdir(self.image_dir):
-            if os.path.isdir(os.path.join(self.image_dir, filename)):
-                continue
-            if os.path.exists(self.mask_path(filename)):
+        image_ids = self.annotation.getImgIds()
+        images = self.annotation.loadImgs(image_ids)
+        for image in images:
+            path = os.path.join(self.image_dir, image['file_name'])
+            assert os.path.exists(path), "{} does not exist".format(path)
+            if os.path.exists(self.mask_path(path)):
+                # already have a mask
                 continue
             else:
-                yield filename
+                yield image['file_name']
 
     def annotate_images(self):
         for filename in self.search_unannotated_images():
@@ -161,4 +164,4 @@ class Annotator:
 
 
 if __name__ == '__main__':
-    s = Annotator("images", "annotation.json").annotate_images()
+    s = Annotator("images").annotate_images()
