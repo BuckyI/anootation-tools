@@ -96,23 +96,27 @@ class Annotator:
         return os.path.join(self.image_dir, 'masks', os.path.basename(filename)).replace("\\", "/")
 
     def annotate_image(self, filename: str):
-        # def click_save(event):
-        #     if event.button == 1:  # 左键点击保存
-        #         coco_utils.mask2file(mask, self.mask_path(filename))
-        #     elif event.button == 3:  # 右键点击取消
-        #         plt.close()
-        #         self.annotate_image(filename)
+        def click_save(self, event):
+            "event.button: 1 left click; 3 right click"
+            if event.button == 3:  # 右键点击取消
+                print("drop this mask")
+                self.current_mask_ok = False
 
         image = load_image(os.path.join(self.image_dir, filename))
-        mask = get_mask(image, predictor=self.predictor)
-        # confirm
-    plt.close()
-    plt.imshow(image)
-    plt.axis('on')
-        show_mask(mask, plt.gca())
-        # plt.connect('button_press_event', click_save)
-    plt.show()
-        coco_utils.mask2file(mask, self.mask_path(filename))
+        self.current_mask_ok = False
+        while(not self.current_mask_ok):
+            mask = get_mask(image, predictor=self.predictor)
+            # confirm if mask is ok
+            plt.close()
+            plt.imshow(image)
+            plt.axis('on')
+            show_mask(mask, plt.gca())
+            plt.connect('button_press_event', lambda e: click_save(self, e))
+            plt.show()
+            print(self.current_mask_ok, 'finally')
+        else:  # finally save the good mask
+            coco_utils.mask2file(mask, self.mask_path(filename))
+            print("saved to {}".format(self.mask_path(filename)))
 
     def search_unannotated_images(self):
         for filename in os.listdir(self.image_dir):
