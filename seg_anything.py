@@ -7,6 +7,9 @@ import coco_utils
 from pycocotools.coco import COCO
 import pickle
 import os
+import requests
+from tqdm import tqdm
+from urllib.parse import urlsplit
 
 
 def show_points(coords, labels, ax, marker_size=375):
@@ -34,14 +37,51 @@ def load_image(path: str):
     return image
 
 
+def download(url, dir=""):
+    response = requests.get(url, stream=True)
+    total_size = int(response.headers.get("Content-Length", 0))
+    filepath = os.path.join(dir, urlsplit(url).path.split("/")[-1])
+    with open(filepath, "wb") as f, tqdm(
+        total=total_size, unit="iB", unit_scale=True
+    ) as progress_bar:
+        for chunk in response.iter_content(chunk_size=1024):
+            if chunk:
+                f.write(chunk)
+                progress_bar.update(len(chunk))
+    print("Download completed! File saved as {}".format(filepath))
+    return filepath
+
+
+def load_model(model="vit_h"):
+    "model: vit_h, vit_l, vit_b"
+    models = {
+        "vit_h": (
+            "assets/sam_vit_h_4b8939.pth",
+            "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth",
+        ),
+        "vit_l": (
+            "assets/sam_vit_l_0b3195.pth",
+            "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_l_0b3195.pth",
+        ),
+        "vit_b": (
+            "assets/sam_vit_b_01ec64.pth",
+            "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth",
+        ),
+    }
+    if model not in models:
+        raise ValueError("model must be one of {}".format(models.keys()))
+    sam_checkpoint, sam_url = models[model]
+    if not os.path.exists(sam_checkpoint):
+        download(sam_url, "assets/")
+
+    sam = sam_model_registry[model](checkpoint=sam_checkpoint)
+    sam.to(device="cuda")
+    return SamPredictor(sam)
+
+
 def get_mask(image: np.ndarray, predictor: SamPredictor = None):
     if predictor is None:
-        # 加载模型
-        sam_checkpoint = "assets/sam_vit_b_01ec64.pth"
-        model_type = "vit_b"
-        sam = sam_model_registry[model_type](checkpoint=sam_checkpoint)
-        sam.to(device="cuda")
-        predictor = SamPredictor(sam)
+        predictor = load_model("vit_h")
 
     predictor.set_image(image)
 
@@ -98,11 +138,7 @@ def resize_image(image, max_height, max_width):
 class Annotator:
     def __init__(self, image_dir: str, annotation: str = None):
         # 加载模型
-        sam_checkpoint = "assets/sam_vit_b_01ec64.pth"
-        model_type = "vit_b"
-        sam = sam_model_registry[model_type](checkpoint=sam_checkpoint)
-        sam.to(device="cuda")
-        self.predictor = SamPredictor(sam)
+        self.predictor = load_model("vit_h")
 
         # annotation settings
         if annotation is None:
