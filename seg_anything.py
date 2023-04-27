@@ -36,12 +36,12 @@ def load_image(path: str):
 
 def get_mask(image: np.ndarray, predictor: SamPredictor = None):
     if predictor is None:
-    # 加载模型
-    sam_checkpoint = "assets/sam_vit_b_01ec64.pth"
-    model_type = "vit_b"
-    sam = sam_model_registry[model_type](checkpoint=sam_checkpoint)
-    sam.to(device="cuda")
-    predictor = SamPredictor(sam)
+        # 加载模型
+        sam_checkpoint = "assets/sam_vit_b_01ec64.pth"
+        model_type = "vit_b"
+        sam = sam_model_registry[model_type](checkpoint=sam_checkpoint)
+        sam.to(device="cuda")
+        predictor = SamPredictor(sam)
 
     predictor.set_image(image)
 
