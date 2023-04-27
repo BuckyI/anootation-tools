@@ -61,7 +61,7 @@ def get_mask(image: np.ndarray, predictor: SamPredictor = None):
             plt.draw()
         # 读取输入的点
         # usage: input point(s), the last one is negetive
-        points = plt.ginput(n=-1, timeout=-1)
+        points = plt.ginput(n=-1, timeout=30)
         if not points:
             print("finished")
             break
