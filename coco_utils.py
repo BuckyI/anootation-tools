@@ -18,6 +18,10 @@ def file2mask(path: str):
 def mask2file(mask: np.ndarray, path: str = 'example.jpg'):
     "save binary mask to image file"
     img_mask = mask.astype(np.uint8) * 255
+    # 保证目标文件夹存在
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    if os.path.exists(path):
+        print("mask2file overwrite {}".format(path))
     cv2.imwrite(path, img_mask)
 
 
