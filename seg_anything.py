@@ -175,16 +175,16 @@ class Annotator:
 
         self.current_img = None
         self.current_img_ok = False
-        self.current_category = 0
+        self.current_catid = 0
         self.current_mask_ok = False
         self.current_annotations = None
 
     @property
-    def current_category(self):
+    def current_catid(self):
         return self._category
 
-    @current_category.setter
-    def current_category(self, v):
+    @current_catid.setter
+    def current_catid(self, v):
         keys = list(self.annotation.cats.keys())
         self._category = keys[v % len(keys)]
 
@@ -204,7 +204,7 @@ class Annotator:
     def status(self):
         image_ok = "finished" if self.current_img_ok else "continue"
         mask_ok = "use this mask" if self.current_mask_ok else "drop this mask"
-        category_name = self.category_name(self.current_category)
+        category_name = self.category_name(self.current_catid)
         return f"Annotating {category_name} in {self.current_img}\n\
             mask: {mask_ok}; \nimage: {image_ok};"
 
@@ -257,7 +257,7 @@ class Annotator:
                 # resize the mask to the original image size
                 size = (image.shape[1], image.shape[0])
                 mask = coco_utils.resize_mask(mask, size)
-                self.current_annotations[self.current_category].append(mask)
+                self.current_annotations[self.current_catid].append(mask)
         else:
             # save annotations
             for cat, masks in self.current_annotations.items():
