@@ -106,6 +106,9 @@ def get_mask(image: np.ndarray, predictor: SamPredictor = None):
     mask = None
     while True:
         # 展示图片结果
+        plt.close()
+        plt.figure(figsize=(25.60, 14.40), dpi=100)
+        plt.title("annotate")
         plt.imshow(image)
         plt.axis("off")
         if mask is not None:
@@ -119,7 +122,7 @@ def get_mask(image: np.ndarray, predictor: SamPredictor = None):
             plt.draw()
         # 读取输入的点
         # usage: input point(s), the last one is negetive
-        points = plt.ginput(n=-1, timeout=30)
+        points = plt.ginput(n=-1, timeout=-1)
         if not points:
             print("finished")
             break
@@ -154,9 +157,9 @@ def resize_image(image, max_height, max_width):
 
 
 class Annotator:
-    def __init__(self, image_dir: str, annotation: str = None):
+    def __init__(self, image_dir: str, annotation: str = None, model: str = "vit_h"):
         # 加载模型
-        self.predictor = load_model("vit_h")
+        self.predictor = load_model(model)
 
         # annotation settings
         if annotation is None:
@@ -176,8 +179,13 @@ class Annotator:
         def click_save(self, event):
             "event.button: 1 left click; 3 right click"
             if event.button == 3:  # 右键点击取消
-                print("drop this mask")
+                plt.title("drop this mask"), plt.draw()
                 self.current_mask_ok = False
+            elif event.button == 1:
+                plt.title("use this mask"), plt.draw()
+                self.current_mask_ok = True
+            elif event.button == 2:
+                plt.close()
 
         # load image
         image = load_image(os.path.join(self.image_dir, filename))
@@ -190,6 +198,8 @@ class Annotator:
             # confirm if mask is ok
             self.current_mask_ok = True
             plt.close()
+            plt.figure(figsize=(25.60, 14.40), dpi=100)
+            plt.title("result")
             plt.imshow(small_image)
             plt.axis("on")
             show_mask(mask, plt.gca())
@@ -219,6 +229,8 @@ class Annotator:
 
 
 if __name__ == "__main__":
-    workdir = "demo_images"
-    s = Annotator(workdir).annotate_images()
+    workdir = "dataset/images"
+    s = Annotator(
+        workdir, annotation=r"dataset/images/annotation.json", model="vit_h"
+    ).annotate_images()
     coco_utils.merge_annotations(workdir)
