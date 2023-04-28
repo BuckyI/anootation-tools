@@ -105,7 +105,7 @@ class Annotation:
             for idx, mask in enumerate(masks):
                 mask_path = self.masksdir / self.filepath.name
                 mask_path = mask_path.with_stem(
-                    self.name + " " + category_id + " " + str(idx)
+                    self.name + " " + str(category_id) + " " + str(idx)
                 )
                 mask2file(mask, str(mask_path))
 
