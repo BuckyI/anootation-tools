@@ -10,6 +10,8 @@ import os
 import requests
 from tqdm import tqdm
 from urllib.parse import urlsplit
+from pathlib import Path
+import json
 
 
 def show_points(coords, labels, ax, marker_size=375):
@@ -166,6 +168,8 @@ class Annotator:
         if annotation is None:
             annotation = os.path.join(image_dir, "annotation.json")
             coco_utils.init_COCO(image_dir, annotation)
+        elif not os.path.exists(annotation):
+            coco_utils.init_COCO(image_dir, annotation)
         self.annotation = COCO(annotation)
         self.image_dir = image_dir
 
@@ -173,6 +177,7 @@ class Annotator:
         self.current_img_ok = False
         self.current_category = 0
         self.current_mask_ok = False
+        self.current_annotations = None
 
     @property
     def current_category(self):
@@ -183,16 +188,25 @@ class Annotator:
         keys = list(self.annotation.cats.keys())
         self._category = keys[v % len(keys)]
 
-    def mask_path(self, filename: str):
-        return os.path.join(
-            self.image_dir, "masks", os.path.basename(filename)
-        ).replace("\\", "/")
+    def category_name(self, idx):
+        return self.annotation.cats[idx]["name"]
+
+    def mask_path(self, filename, category_name, idx):
+        assert self.current_img is not None
+        mask_dir = Path(self.image_dir, "masks")
+        mask_path = mask_dir / Path(filename)
+        mask_path = mask_path.with_stem(
+            mask_path.stem + " " + category_name + " " + str(idx)
+        )
+        assert not mask_path.exists()
+        return str(mask_path.relative_to(self.image_dir)).replace("\\", "/")
 
     def status(self):
         image_ok = "finished" if self.current_img_ok else "continue"
         mask_ok = "use this mask" if self.current_mask_ok else "drop this mask"
-        cat = self.annotation.cats[self.current_category]["name"]
-        return f"Annotating {cat} in {self.current_img}\nmask: {mask_ok}; \nimage: {image_ok};"
+        category_name = self.category_name(self.current_category)
+        return f"Annotating {category_name} in {self.current_img}\n\
+            mask: {mask_ok}; \nimage: {image_ok};"
 
     def annotate_image(self, filename: str):
         def set_action(self, event):
@@ -214,6 +228,8 @@ class Annotator:
         image = load_image(os.path.join(self.image_dir, filename))
         small_image, _ = resize_image(image, 800, 800)  # 使用小尺寸图片标注
 
+        # initialize
+        self.current_annotations = {i: [] for i in self.annotation.cats.keys()}
         self.current_img_ok = False
         while not self.current_img_ok:
             # get mask
@@ -240,20 +256,37 @@ class Annotator:
             else:  # finally save the good mask
                 # resize the mask to the original image size
                 size = (image.shape[1], image.shape[0])
-                coco_utils.mask2file(mask, self.mask_path(filename), size=size)
-                print("saved to {}".format(self.mask_path(filename)))
+                mask = coco_utils.resize_mask(mask, size)
+                self.current_annotations[self.current_category].append(mask)
+        else:
+            # save annotations
+            for cat, masks in self.current_annotations.items():
+                paths = []
+                for j, mask in enumerate(masks):
+                    mask_path = self.mask_path(filename, self.category_name(cat), j)
+                    path = os.path.join(self.image_dir, mask_path)
+                    coco_utils.mask2file(mask=mask, path=path)
+                    paths.append(mask_path)
+                else:
+                    # record the mask files path
+                    self.current_annotations[cat] = paths
+
+            ann_file = Path(self.image_dir, "masks", f"{filename}.json")
+            assert not ann_file.exists()
+            with open(ann_file, "w") as f:
+                json.dump(self.current_annotations, f)
+                print("saved to {}".format(ann_file))
 
     def search_unannotated_images(self):
         image_ids = self.annotation.getImgIds()
         images = self.annotation.loadImgs(image_ids)
         for image in images:
-            path = os.path.join(self.image_dir, image["file_name"])
-            assert os.path.exists(path), "{} does not exist".format(path)
-            if os.path.exists(self.mask_path(path)):
-                # already have a mask
-                continue
-            else:
-                yield image["file_name"]
+            filename = image["file_name"]
+            path = Path(self.image_dir, filename)
+            assert path.exists(), "{} does not exist".format(path)
+            ann_path = Path(self.image_dir, "masks", f"{filename}.json")
+            if not ann_path.exists():  # 如果存在同名的 json，认为已经标注完成
+                yield filename
 
     def annotate_images(self):
         for filename in self.search_unannotated_images():
@@ -261,8 +294,8 @@ class Annotator:
 
 
 if __name__ == "__main__":
-    workdir = "dataset/images"
+    workdir = "dataset/images/"
     s = Annotator(
-        workdir, annotation=r"dataset/images/annotation.json", model="vit_h"
+        workdir, model="vit_h", annotation=workdir + "annotation.json"
     ).annotate_images()
     coco_utils.merge_annotations(workdir)

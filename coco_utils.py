@@ -16,17 +16,23 @@ def file2mask(path: str):
     return mask > 0
 
 
-def mask2file(mask: np.ndarray, path: str = "example.jpg", bool2int=True, size=None):
+def mask2file(mask: np.ndarray, path: str = "example.jpg", bool2int=True):
     "save binary mask to image file"
     # 将 bool 转换为 int 图片矩阵
     img_mask = mask.astype(np.uint8) * 255 if bool2int else mask
-    if size is not None:
-        img_mask = cv2.resize(img_mask, size, cv2.INTER_CUBIC)
     # 保证目标文件夹存在
     os.makedirs(os.path.dirname(path), exist_ok=True)
     if os.path.exists(path):
         print("mask2file overwrite {}".format(path))
     cv2.imwrite(path, img_mask)
+
+
+def resize_mask(mask: np.ndarray, size: tuple):
+    "input the bool like mask and resize it to the given size"
+    assert mask.dtype == np.bool_, "mask must be bool"
+    mask = mask.astype(np.uint8) * 255
+    mask = cv2.resize(mask, size, cv2.INTER_CUBIC)
+    return mask > 0
 
 
 def encode_mask(mask: np.ndarray):
