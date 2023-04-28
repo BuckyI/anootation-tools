@@ -170,47 +170,78 @@ class Annotator:
         self.image_dir = image_dir
 
         self.current_img = None
+        self.current_img_ok = False
+        self.current_category = 0
+        self.current_mask_ok = False
+
+    @property
+    def current_category(self):
+        return self._category
+
+    @current_category.setter
+    def current_category(self, v):
+        keys = list(self.annotation.cats.keys())
+        self._category = keys[v % len(keys)]
 
     def mask_path(self, filename: str):
         return os.path.join(
             self.image_dir, "masks", os.path.basename(filename)
         ).replace("\\", "/")
 
+    def status(self):
+        image_ok = "finished" if self.current_img_ok else "continue"
+        mask_ok = "use this mask" if self.current_mask_ok else "drop this mask"
+        cat = self.annotation.cats[self.current_category]["name"]
+        return f"Annotating {cat} in {self.current_img}\nmask: {mask_ok}; \nimage: {image_ok};"
+
     def annotate_image(self, filename: str):
-        def click_save(self, event):
-            "event.button: 1 left click; 3 right click"
-            if event.button == 3:  # 右键点击取消
-                plt.title("drop this mask"), plt.draw()
+        def set_action(self, event):
+            "press key to set next action"
+            if event.key == "left":  # 重新标注当前 mask
                 self.current_mask_ok = False
-            elif event.button == 1:
-                plt.title("use this mask"), plt.draw()
+            elif event.key == "right":  # 使用当前 mask
                 self.current_mask_ok = True
-            elif event.button == 2:
-                plt.close()
+            elif event.key == "up":  # 更改类别
+                self.current_category += 1
+            elif event.key == "down":  # 更改类别
+                self.current_category -= 1
+            elif event.key == "enter":  # 继续标注本图片
+                self.current_img_ok = False
+            plt.title(self.status()), plt.draw()
 
         # load image
+        self.current_img = filename
         image = load_image(os.path.join(self.image_dir, filename))
         small_image, _ = resize_image(image, 800, 800)  # 使用小尺寸图片标注
 
-        # get mask
-        self.current_mask_ok = False
-        while not self.current_mask_ok:
-            mask = get_mask(small_image, predictor=self.predictor)
-            # confirm if mask is ok
-            self.current_mask_ok = True
-            plt.close()
-            plt.figure(figsize=(25.60, 14.40), dpi=100)
-            plt.title("result")
-            plt.imshow(small_image)
-            plt.axis("on")
-            show_mask(mask, plt.gca())
-            plt.connect("button_press_event", lambda e: click_save(self, e))
-            plt.show()
-        else:  # finally save the good mask
-            # resize the mask to the original image size
-            size = (image.shape[1], image.shape[0])
-            coco_utils.mask2file(mask, self.mask_path(filename), size=size)
-            print("saved to {}".format(self.mask_path(filename)))
+        self.current_img_ok = False
+        while not self.current_img_ok:
+            # get mask
+            self.current_mask_ok = False
+            while not self.current_mask_ok:
+                mask = get_mask(small_image, predictor=self.predictor)
+
+                # by default, let this mask be the last mask of this image
+                self.current_mask_ok = True
+                self.current_img_ok = True
+                # confirm if mask is ok
+                plt.close()
+                plt.figure(figsize=(25.60, 14.40), dpi=100)
+                plt.title(self.status())
+                plt.imshow(small_image)
+                plt.axis("on")
+                show_mask(mask, plt.gca())
+                plt.connect(
+                    "button_press_event",
+                    lambda e: plt.close() if e.button == 2 else None,
+                )
+                plt.connect("key_press_event", lambda e: set_action(self, e))
+                plt.show()
+            else:  # finally save the good mask
+                # resize the mask to the original image size
+                size = (image.shape[1], image.shape[0])
+                coco_utils.mask2file(mask, self.mask_path(filename), size=size)
+                print("saved to {}".format(self.mask_path(filename)))
 
     def search_unannotated_images(self):
         image_ids = self.annotation.getImgIds()
