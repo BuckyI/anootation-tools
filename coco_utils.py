@@ -73,6 +73,51 @@ def parse_mask_to_coco(image_id, anno_id, image_mask, category_id):
     return annotation
 
 
+class Annotation:
+    "used to store annotations of a single image"
+
+    def __init__(self, workdir: str, filename: str):
+        self.workdir = Path(workdir)
+        self.masksdir = self.workdir / "masks"
+        self.filepath = Path(workdir, filename)
+        self.name = self.filepath.stem
+        assert self.filepath.exists()
+
+        self.annpath = self.masksdir / f"{self.name}.json"
+        # standard form {cat1_id: [item1, item2], cat2_id: [item3, item4]}
+        self.anns = json.load(open(self.annpath, "r")) if self.annpath.exists() else {}
+        self.masks = {}  # {i: [] for i in self.category}
+
+    def files2masks(self):
+        for category_id, paths in self.anns.items():
+            masks = []
+            for path in paths:
+                path = self.masksdir / path
+                assert path.exists(), "mask {} doesn't exist!".format(path)
+                mask = file2mask(str(path))
+                masks.append(mask)
+            else:
+                self.masks[category_id] = masks
+
+    def masks2files(self):
+        for category_id, masks in self.masks.items():
+            files = []
+            for idx, mask in enumerate(masks):
+                mask_path = self.masksdir / self.filepath.name
+                mask_path = mask_path.with_stem(
+                    self.name + " " + category_id + " " + str(idx)
+                )
+                mask2file(mask, str(mask_path))
+
+                file = str(mask_path.relative_to(self.masksdir)).replace("\\", "/")
+                files.append(file)
+            else:
+                self.anns[category_id] = files
+        else:
+            json.dump(self.anns, open(self.annpath, "w"))
+            print("saved to {}".format(self.annpath))
+
+
 def init_COCO(image_dir, annotation_path="annotation.json", match="*.jpg"):
     coco_data = {
         "info": {},
@@ -153,17 +198,20 @@ def merge_annotations(dir):
     # get annotations from mask images
     for image in data["images"]:
         name = image["file_name"]
-        mask_path = os.path.join(dir, "masks", name).replace("\\", "/")
-        assert os.path.exists(mask_path), f"{name} don't have a mask!"
-        mask = file2mask(mask_path)
 
-        annotation = parse_mask_to_coco(
-            image_id=image["id"],
-            anno_id=len(annotations),
-            image_mask=mask,
-            category_id=1,
-        )
-        annotations.append(annotation)
+        anns = Annotation(dir, name)
+        anns.files2masks()
+        if not anns.masks:
+            continue
+        for category, masks in anns.masks.items():
+            for mask in masks:
+                annotation = parse_mask_to_coco(
+                    image_id=image["id"],
+                    anno_id=len(annotations),
+                    image_mask=mask,
+                    category_id=category,
+                )
+                annotations.append(annotation)
     else:
         # data['annotations'] = annotations
         json.dump(data, open(ann_file, "w"))
