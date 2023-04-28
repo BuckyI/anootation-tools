@@ -12,6 +12,7 @@ from tqdm import tqdm
 from urllib.parse import urlsplit
 from pathlib import Path
 import json
+from typing import Union
 
 
 def show_points(coords, labels, ax, marker_size=375):
@@ -47,8 +48,9 @@ def show_mask(mask, ax, random_color=False):
     ax.imshow(mask_image)
 
 
-def load_image(path: str):
-    image = cv2.imread(path)
+def load_image(path: Union[str, Path]):
+    "load image from path"
+    image = cv2.imread(str(path))
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     return image
 
@@ -95,7 +97,7 @@ def load_model(model="vit_h"):
     return SamPredictor(sam)
 
 
-def get_mask(image: np.ndarray, predictor: SamPredictor = None):
+def get_mask(image: np.ndarray, predictor: SamPredictor = None, hint: str = "annotate"):
     if predictor is None:
         predictor = load_model("vit_h")
 
@@ -106,13 +108,13 @@ def get_mask(image: np.ndarray, predictor: SamPredictor = None):
     input_labels = []
     logits = None
     mask = None
+    plt.close()
+    plt.figure(figsize=(25.60, 14.40), dpi=100)
+    plt.title(hint)
+    plt.axis("off")
     while True:
         # 展示图片结果
-        plt.close()
-        plt.figure(figsize=(25.60, 14.40), dpi=100)
-        plt.title("annotate")
         plt.imshow(image)
-        plt.axis("off")
         if mask is not None:
             show_mask(mask, plt.gca())
             show_points(
@@ -173,11 +175,10 @@ class Annotator:
         self.annotation = COCO(annotation)
         self.image_dir = image_dir
 
-        self.current_img = None
+        self.current_img_ann = None
         self.current_img_ok = False
         self.current_catid = 0
         self.current_mask_ok = False
-        self.current_annotations = None
 
     @property
     def current_catid(self):
@@ -191,21 +192,12 @@ class Annotator:
     def category_name(self, idx):
         return self.annotation.cats[idx]["name"]
 
-    def mask_path(self, filename, category_name, idx):
-        assert self.current_img is not None
-        mask_dir = Path(self.image_dir, "masks")
-        mask_path = mask_dir / Path(filename)
-        mask_path = mask_path.with_stem(
-            mask_path.stem + " " + category_name + " " + str(idx)
-        )
-        assert not mask_path.exists()
-        return str(mask_path.relative_to(self.image_dir)).replace("\\", "/")
-
     def status(self):
+        name = self.current_img_ann.name
         image_ok = "finished" if self.current_img_ok else "continue"
         mask_ok = "use this mask" if self.current_mask_ok else "drop this mask"
-        category_name = self.category_name(self.current_catid)
-        return f"Annotating {category_name} in {self.current_img}\n\
+        category_name = self.annotation.cats[self.current_catid]["name"]
+        return f"Annotating image {name}\n category: {category_name}\n \
             mask: {mask_ok}; \nimage: {image_ok};"
 
     def annotate_image(self, filename: str):
@@ -216,26 +208,32 @@ class Annotator:
             elif event.key == "right":  # 使用当前 mask
                 self.current_mask_ok = True
             elif event.key == "up":  # 更改类别
-                self.current_category += 1
+                self.current_catid += 1
             elif event.key == "down":  # 更改类别
-                self.current_category -= 1
+                self.current_catid -= 1
             elif event.key == "enter":  # 继续标注本图片
                 self.current_img_ok = False
             plt.title(self.status()), plt.draw()
 
+        # initialize
+        ann = self.current_img_ann
+        ann.masks = {i: [] for i in self.annotation.cats.keys()}
+
         # load image
-        self.current_img = filename
-        image = load_image(os.path.join(self.image_dir, filename))
+        image = load_image(ann.filepath)
         small_image, _ = resize_image(image, 800, 800)  # 使用小尺寸图片标注
 
-        # initialize
-        self.current_annotations = {i: [] for i in self.annotation.cats.keys()}
+        # annotate
         self.current_img_ok = False
         while not self.current_img_ok:
             # get mask
             self.current_mask_ok = False
             while not self.current_mask_ok:
-                mask = get_mask(small_image, predictor=self.predictor)
+                mask = get_mask(
+                    small_image,
+                    predictor=self.predictor,
+                    hint=self.status(),
+                )
 
                 # by default, let this mask be the last mask of this image
                 self.current_mask_ok = True
@@ -257,45 +255,28 @@ class Annotator:
                 # resize the mask to the original image size
                 size = (image.shape[1], image.shape[0])
                 mask = coco_utils.resize_mask(mask, size)
-                self.current_annotations[self.current_catid].append(mask)
+                ann.masks[self.current_catid].append(mask)
         else:
             # save annotations
-            for cat, masks in self.current_annotations.items():
-                paths = []
-                for j, mask in enumerate(masks):
-                    mask_path = self.mask_path(filename, self.category_name(cat), j)
-                    path = os.path.join(self.image_dir, mask_path)
-                    coco_utils.mask2file(mask=mask, path=path)
-                    paths.append(mask_path)
-                else:
-                    # record the mask files path
-                    self.current_annotations[cat] = paths
+            ann.masks2files()
 
-            ann_file = Path(self.image_dir, "masks", f"{filename}.json")
-            assert not ann_file.exists()
-            with open(ann_file, "w") as f:
-                json.dump(self.current_annotations, f)
-                print("saved to {}".format(ann_file))
-
-    def search_unannotated_images(self):
+    def annotate_images(self):
         image_ids = self.annotation.getImgIds()
         images = self.annotation.loadImgs(image_ids)
         for image in images:
             filename = image["file_name"]
             ann = coco_utils.Annotation(self.image_dir, filename)
-            if ann.anns and ann.anns.get('1'):  # 存在病害的标注信息视为已经标注完成
+            if ann.anns:  # and ann.anns.get("1"):  # 存在病害的标注信息视为已经标注完成
                 continue
             else:
-                yield filename
-
-    def annotate_images(self):
-        for filename in self.search_unannotated_images():
-            self.annotate_image(filename)
+                # annotate this image
+                self.current_img_ann = ann  # resume annotation
+                self.annotate_image(filename)
 
 
 if __name__ == "__main__":
     workdir = "dataset/images/"
     s = Annotator(
-        workdir, model="vit_h", annotation=workdir + "annotation.json"
+        workdir, model="vit_l", annotation=workdir + "annotation.json"
     ).annotate_images()
     coco_utils.merge_annotations(workdir)
