@@ -136,6 +136,7 @@ def get_mask(image: np.ndarray, predictor: SamPredictor = None):
             mask_input=logits,
             multimask_output=False,
         )
+    assert mask is not None
     return mask[0]
 
 
