@@ -164,7 +164,7 @@ class Annotator:
         # annotation settings
         if annotation is None:
             annotation = os.path.join(image_dir, "annotation.json")
-            coco_utils.create_ann_file(image_dir, annotation)
+            coco_utils.init_COCO(image_dir, annotation)
         self.annotation = COCO(annotation)
         self.image_dir = image_dir
 

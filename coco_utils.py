@@ -67,7 +67,7 @@ def parse_mask_to_coco(image_id, anno_id, image_mask, category_id):
     return annotation
 
 
-def create_ann_file(image_dir, annotation_path="annotation.json", match="*.jpg"):
+def init_COCO(image_dir, annotation_path="annotation.json", match="*.jpg"):
     coco_data = {
         "info": {},
         "licenses": [],
@@ -77,14 +77,14 @@ def create_ann_file(image_dir, annotation_path="annotation.json", match="*.jpg")
     }
 
     # info
-    formatted_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+    now = datetime.datetime.now()
     coco_data["info"] = {
-        "year": 2023,
+        "year": now.strftime("%Y"),
         "version": None,
         "contributor": "Zhang & Wang",
         "description": "sick leaves :)",
         "url": None,
-        "date_created": formatted_time,
+        "date_created": now.strftime("%Y-%m-%d %H:%M:%S.%f"),
     }
 
     # licenses
@@ -118,10 +118,15 @@ def create_ann_file(image_dir, annotation_path="annotation.json", match="*.jpg")
     # categories
     coco_data["categories"] = [
         {
+            "id": 0,
+            "name": "leave",
+            "supercategory": None,
+        },
+        {
             "id": 1,
             "name": "dot",
             "supercategory": None,
-        }
+        },
     ]
 
     if os.path.exists(annotation_path):
