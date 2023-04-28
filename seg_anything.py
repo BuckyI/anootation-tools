@@ -282,10 +282,10 @@ class Annotator:
         images = self.annotation.loadImgs(image_ids)
         for image in images:
             filename = image["file_name"]
-            path = Path(self.image_dir, filename)
-            assert path.exists(), "{} does not exist".format(path)
-            ann_path = Path(self.image_dir, "masks", f"{filename}.json")
-            if not ann_path.exists():  # 如果存在同名的 json，认为已经标注完成
+            ann = coco_utils.Annotation(self.image_dir, filename)
+            if ann.anns and ann.anns.get('1'):  # 存在病害的标注信息视为已经标注完成
+                continue
+            else:
                 yield filename
 
     def annotate_images(self):
