@@ -196,11 +196,15 @@ class Annotator:
 
     def status(self):
         name = self.current_img_ann.name
-        image_ok = "finished" if self.current_img_ok else "continue"
+        image_ok = "finished annotation" if self.current_img_ok else "not done!"
         mask_ok = "use this mask" if self.current_mask_ok else "drop this mask"
         category_name = self.annotation.cats[self.current_catid]["name"]
-        return f"Annotating image {name}\n category: {category_name}\n \
-            mask: {mask_ok}; \nimage: {image_ok};"
+        return (
+            f"Annotating image: {name}\n"
+            f"Category: {category_name}\n"
+            f"Mask: {mask_ok}; \n"
+            f"Image: {image_ok};"
+        )
 
     def annotate_image(self, filename: str):
         def set_action(self, event):
