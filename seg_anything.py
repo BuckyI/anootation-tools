@@ -50,6 +50,65 @@ def show_mask(mask, ax, random_color=False):
     ax.imshow(mask_image)
 
 
+def show_result(image, mask, title="") -> dict:
+    "show the final mask and decide what's next"
+
+    def sett(event):
+        "press key to set next action"
+        if event.key == "up":  # 更改类别
+            result["catid"] += 1
+        elif event.key == "down":  # 更改类别
+            result["catid"] -= 1
+        elif event.key == "enter":  # 保存并退出
+            result["img_ok"] = True
+            plt.close(fig)
+        elif event.key == "contrl+enter":  # 保存并退出
+            result["img_ok"] = False
+            plt.close(fig)
+        elif event.key == "delete":  # 退出
+            result["mask_ok"] = False
+            plt.close(fig)
+
+        fig.suptitle("{}\n category id: {}".format(title, result["catid"]))
+        fig.canvas.draw_idle()
+
+    def on_move(event):
+        "add vline and hline to compare two picture"
+        if event.inaxes:
+            for l in lines["vline"]:
+                l.set_xdata(event.xdata)
+            for l in lines["hline"]:
+                l.set_ydata(event.ydata)
+            event.inaxes.figure.canvas.draw_idle()
+
+    result = {
+        "mask_ok": True,
+        "img_ok": True,
+        "catid": 0,
+    }
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(24.73, 10.58))
+    fig.suptitle("{}\n category id: {}".format(title, result["catid"]))
+    ax1.axis("off"), ax1.imshow(image)
+    ax2.axis("off"), ax2.imshow(image), show_mask(mask, ax2)
+    # style
+    style = {"color": "black", "alpha": 0.5}
+    lines = {
+        "vline": [ax.axvline(**style) for ax in (ax1, ax2)],
+        "hline": [ax.axhline(**style) for ax in (ax1, ax2)],
+    }
+
+    # config control action
+    fig.canvas.mpl_connect("key_press_event", sett)
+    fig.canvas.mpl_connect("motion_notify_event", on_move)
+    fig.canvas.mpl_connect(
+        "button_press_event",
+        lambda e: plt.close() if e.button == 2 else None,
+    )
+    plt.show()
+    return result
+
+
 def load_image(path: Union[str, Path]):
     "load image from path"
     image = cv2.imread(str(path))
@@ -105,27 +164,29 @@ def get_mask(image: np.ndarray, predictor: SamPredictor = None, hint: str = "ann
 
     predictor.set_image(image)
 
-    # 获得 mask
+    # setup
     input_points = []
     input_labels = []
     logits = None
     mask = None
-    plt.close()
-    plt.figure(figsize=(25.60, 14.40), dpi=100)
-    plt.title(hint)
-    plt.axis("off")
+
+    fig, ax = plt.subplots(figsize=(25, 14), dpi=100)
+    ax.set_title(hint)
+    ax.axis("off")
+
     while True:
         # 展示图片结果
-        plt.imshow(image)
+        ax.cla()
+        ax.imshow(image)
         if mask is not None:
-            show_mask(mask, plt.gca())
+            show_mask(mask, ax)
             show_points(
                 np.array(input_points),
                 np.array(input_labels),
-                plt.gca(),
+                ax,
                 marker_size=80,
             )
-            plt.draw()
+            fig.canvas.draw_idle()
         # 读取输入的点
         # usage: input point(s), the last one is negetive
         points = plt.ginput(n=-1, timeout=-1)
@@ -142,8 +203,11 @@ def get_mask(image: np.ndarray, predictor: SamPredictor = None, hint: str = "ann
             mask_input=logits,
             multimask_output=False,
         )
-    assert mask is not None
-    return mask[0]
+
+    plt.close(fig)
+    return mask[0] if mask is not None else None
+
+
 
 
 def resize_image(image, max_height, max_width):
