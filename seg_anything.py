@@ -208,8 +208,6 @@ def get_mask(image: np.ndarray, predictor: SamPredictor = None, hint: str = "ann
     return mask[0] if mask is not None else None
 
 
-
-
 def resize_image(image, max_height, max_width):
     """
     将图片大小缩放到不超过指定的最大高度和宽度，并返回缩放比例。
@@ -259,7 +257,7 @@ class Annotator:
         return self.annotation.cats[idx]["name"]
 
     def status(self):
-        name = self.current_img_ann.name
+        name = self.current_img_ann.filename
         image_ok = "finished annotation" if self.current_img_ok else "not done!"
         mask_ok = "use this mask" if self.current_mask_ok else "drop this mask"
         category_name = self.annotation.cats[self.current_catid]["name"]
@@ -328,7 +326,7 @@ class Annotator:
                 ann.masks[self.current_catid].append(mask)
         else:
             # save annotations
-            ann.masks2files()
+            ann.save_data()
 
     def annotate_images(self):
         image_ids = self.annotation.getImgIds()
@@ -336,7 +334,7 @@ class Annotator:
         for image in images:
             filename = image["file_name"]
             ann = coco_utils.Annotation(self.image_dir, filename)
-            if ann.anns:  # and ann.anns.get("1"):  # 存在病害的标注信息视为已经标注完成
+            if ann.files:  # and ann.anns.get("1"):  # 存在病害的标注信息视为已经标注完成
                 continue
             else:
                 # annotate this image
@@ -349,4 +347,4 @@ if __name__ == "__main__":
     s = Annotator(
         workdir, model="vit_l", annotation=workdir + "annotation.json"
     ).annotate_images()
-    coco_utils.merge_annotations(workdir)
+    coco_utils.export_COCO(workdir, dst="test_annotation.json")

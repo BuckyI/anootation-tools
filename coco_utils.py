@@ -6,6 +6,8 @@ import json
 import os
 from pathlib import Path
 import datetime
+import pickle
+import logging
 
 
 def file2mask(path: str):
@@ -74,48 +76,71 @@ def parse_mask_to_coco(image_id, anno_id, image_mask, category_id):
 
 
 class Annotation:
-    "used to store annotations of a single image"
+    "used to temporarily store annotations of a single image"
 
-    def __init__(self, workdir: str, filename: str):
-        self.workdir = Path(workdir)
-        self.masksdir = self.workdir / "masks"
-        self.filepath = Path(workdir, filename)
-        self.name = self.filepath.stem
+    def __init__(self, dir: str, filename: str, *, category: dict = None):
+        # init
+        self.workdir = Path(dir)
+        self.masksdir = self.workdir / "masks"  # store files
+        self.filepath = Path(dir, filename)  # image to be annotated
         assert self.filepath.exists()
+        self.filename = filename  # str
+        self.image = None  # ndarray
+        self.finished = False  # bool
+        self.cat = category if category else ["leave", "dot"]  # list of str
+        self.masks = []  # list of (ndarray, category_id)
 
-        self.annpath = self.masksdir / f"{self.name}.json"
-        # standard form {cat1_id: [item1, item2], cat2_id: [item3, item4]}
-        self.anns = json.load(open(self.annpath, "r")) if self.annpath.exists() else {}
-        self.masks = {}  # {i: [] for i in self.category}
+        # load previous annotation
+        self.name = self.filepath.stem
+        self.annpath = self.masksdir / "{}.pickle".format(filename.strip(".jpg"))
+        self.load_data()
 
-    def files2masks(self):
-        for category_id, paths in self.anns.items():
-            masks = []
-            for path in paths:
-                path = self.masksdir / path
-                assert path.exists(), "mask {} doesn't exist!".format(path)
-                mask = file2mask(str(path))
-                masks.append(mask)
-            else:
-                self.masks[category_id] = masks
+    @property
+    def data(self):
+        return {
+            "filename": self.filename,
+            "image": self.image,
+            "finished": self.finished,
+            "category": self.cat,
+            "masks": self.masks,
+        }
 
-    def masks2files(self):
-        for category_id, masks in self.masks.items():
-            files = []
-            for idx, mask in enumerate(masks):
-                mask_path = self.masksdir / self.filepath.name
-                mask_path = mask_path.with_stem(
-                    self.name + " " + str(category_id) + " " + str(idx)
-                )
-                mask2file(mask, str(mask_path))
-
-                file = str(mask_path.relative_to(self.masksdir)).replace("\\", "/")
-                files.append(file)
-            else:
-                self.anns[category_id] = files
+    def load_data(self):
+        if self.annpath.exists():
+            print("load from {}".format(self.annpath))
+            data = pickle.load(open(self.annpath, "rb"))
+            assert data["filename"] == self.filename, "annotation file mismatch"
+            self.image = data["image"]
+            self.finished = data["finished"]
+            self.cat = data["category"]
+            self.masks = data["masks"]
+            return data
         else:
-            json.dump(self.anns, open(self.annpath, "w"))
-            print("saved to {}".format(self.annpath))
+            return None
+
+    def save_data(self):
+        if self.image is None:
+            img = cv2.imread(str(self.filepath))
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            self.image = img
+        if self.annpath.exists():
+            print("overwrite {}".format(self.annpath))
+        with open(self.annpath, "wb") as f:
+            pickle.dump(self.data, f)
+
+    def visualize_masks(self):
+        "visualize masks into image file"
+        for idx, (mask, catid) in enumerate(self.masks):
+            path = self.masksdir / "{} #id {} #cat {}.jpg".format(
+                self.filename.strip(".jpg"),
+                str(idx),
+                str(catid),
+            )
+            mask2file(mask, str(path))
+
+    def add_mask(self, mask, category_id):
+        assert category_id in self.cat, "category_id not in cat"
+        self.masks.append((mask, category_id))
 
 
 def init_COCO(image_dir, annotation_path="annotation.json", match="*.jpg"):
@@ -185,33 +210,33 @@ def init_COCO(image_dir, annotation_path="annotation.json", match="*.jpg"):
     json.dump(coco_data, open(annotation_path, "w"))
 
 
-def merge_annotations(dir):
-    """merge annotations from multiple mask files
+def export_COCO(dir, scr="annotation.json", dst="annotation.json"):
+    """merge annotations from multiple pickle files
     NOTE: follow the standard file structure!
     """
     # load annotation file
-    ann_file = os.path.join(dir, "annotation.json")
-    data = json.load(open(ann_file))
+    scr_file = os.path.join(dir, scr)
+    data = json.load(open(scr_file, "r"))
     annotations = data["annotations"]
-    assert len(annotations) == 0, f"{ann_file} have annotations, check it"
+    assert len(annotations) == 0, f"{scr_file} have annotations, check it"
 
     # get annotations from mask images
     for image in data["images"]:
         name = image["file_name"]
 
         anns = Annotation(dir, name)
-        anns.files2masks()
         if not anns.masks:
+            logging.error("no mask in {}".format(name))
             continue
-        for category, masks in anns.masks.items():
-            for mask in masks:
-                annotation = parse_mask_to_coco(
-                    image_id=image["id"],
-                    anno_id=len(annotations),
-                    image_mask=mask,
-                    category_id=category,
-                )
-                annotations.append(annotation)
+        for mask, catid in anns.masks:
+            annotation = parse_mask_to_coco(
+                image_id=image["id"],
+                anno_id=len(annotations),
+                image_mask=mask,
+                category_id=catid,
+            )
+            annotations.append(annotation)
     else:
         # data['annotations'] = annotations
-        json.dump(data, open(ann_file, "w"))
+        dst_file = os.path.join(dir, dst)
+        json.dump(data, open(dst_file, "w"))
