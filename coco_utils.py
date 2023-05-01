@@ -151,7 +151,7 @@ class Annotation:
             mask2file(mask, str(path))
 
     def add_mask(self, mask, category_id):
-        assert category_id in self.cat, "category_id not in cat"
+        assert category_id in range(len(self.cat)), "category_id not in cat"
         self.masks.append((mask, category_id))
 
 
