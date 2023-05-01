@@ -125,6 +125,9 @@ class Annotation:
             self.masks = data["masks"]
             return data
         else:
+            img = cv2.imread(str(self.filepath))
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            self.image = img
             return None
 
     def save_data(self):
