@@ -12,7 +12,7 @@ from tqdm import tqdm
 from urllib.parse import urlsplit
 from pathlib import Path
 import json
-from typing import Union
+from typing import Union, Tuple
 
 
 def show_points(coords, labels, ax, marker_size=375):
@@ -196,6 +196,19 @@ def get_mask(image: np.ndarray, predictor: SamPredictor = None, hint: str = "ann
     # when no input_points are given, the `mask` will be None
     return mask[0] if mask is not None else np.zeros(image.shape[:2], dtype=bool)
 
+
+def image_chunks(image: np.ndarray, size: int = 100) -> Tuple[slice, np.ndarray]:
+    """split the image into small chunks,
+    yield the chunk and the slice index"""
+    height, width, _ = image.shape
+    row_blocks = height // size + (height % size != 0)
+    col_blocks = width // size + (width % size != 0)
+    for row in range(row_blocks):
+        for col in range(col_blocks):
+            x0, y0 = col * size, row * size
+            x1, y1 = min(x0 + size, width), min(y0 + size, height)
+            index = (slice(y0, y1), slice(x0, x1))
+            yield index, image[index]
 
 
 def resize_image(image, max_height, max_width):
