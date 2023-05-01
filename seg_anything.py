@@ -58,7 +58,7 @@ def show_result(image, mask, title="") -> dict:
         if event.key == "enter":  # 保存并退出
             result["img_ok"] = True
             plt.close(fig)
-        elif event.key == "contrl+enter":  # 保存并退出
+        elif event.key == "ctrl+enter":  # 保存并退出
             result["img_ok"] = False
             plt.close(fig)
         elif event.key == "delete":  # 退出
