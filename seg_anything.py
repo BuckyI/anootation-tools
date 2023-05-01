@@ -55,11 +55,7 @@ def show_result(image, mask, title="") -> dict:
 
     def sett(event):
         "press key to set next action"
-        if event.key == "up":  # 更改类别
-            result["catid"] += 1
-        elif event.key == "down":  # 更改类别
-            result["catid"] -= 1
-        elif event.key == "enter":  # 保存并退出
+        if event.key == "enter":  # 保存并退出
             result["img_ok"] = True
             plt.close(fig)
         elif event.key == "contrl+enter":  # 保存并退出
@@ -68,9 +64,6 @@ def show_result(image, mask, title="") -> dict:
         elif event.key == "delete":  # 退出
             result["mask_ok"] = False
             plt.close(fig)
-
-        fig.suptitle("{}\n category id: {}".format(title, result["catid"]))
-        fig.canvas.draw_idle()
 
     def on_move(event):
         "add vline and hline to compare two picture"
@@ -81,14 +74,9 @@ def show_result(image, mask, title="") -> dict:
                 l.set_ydata(event.ydata)
             event.inaxes.figure.canvas.draw_idle()
 
-    result = {
-        "mask_ok": True,
-        "img_ok": True,
-        "catid": 0,
-    }
-
+    result = {"mask_ok": True, "img_ok": True}
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(24.73, 10.58))
-    fig.suptitle("{}\n category id: {}".format(title, result["catid"]))
+    fig.suptitle(title)
     ax1.axis("off"), ax1.imshow(image)
     ax2.axis("off"), ax2.imshow(image), show_mask(mask, ax2)
     # style
