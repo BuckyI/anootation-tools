@@ -193,7 +193,9 @@ def get_mask(image: np.ndarray, predictor: SamPredictor = None, hint: str = "ann
         )
 
     plt.close(fig)
-    return mask[0] if mask is not None else None
+    # when no input_points are given, the `mask` will be None
+    return mask[0] if mask is not None else np.zeros(image.shape[:2], dtype=bool)
+
 
 
 def resize_image(image, max_height, max_width):
