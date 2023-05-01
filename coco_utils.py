@@ -37,6 +37,15 @@ def resize_mask(mask: np.ndarray, size: tuple):
     return mask > 0
 
 
+def morph_close(mask: np.ndarray, size=5, iterations=5):
+    "闭运算 去除 mask 的细小空洞 (False dots)"
+    assert mask.dtype == np.bool_, "mask must be bool"
+    kernel = np.ones((size, size), np.uint8)
+    mask = mask.astype(np.uint8) * 255
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=iterations)
+    return mask > 0
+
+
 def encode_mask(mask: np.ndarray):
     """
     Encode a binary mask using RLE. (bool array)
