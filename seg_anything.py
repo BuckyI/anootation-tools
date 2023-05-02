@@ -367,15 +367,79 @@ class Annotator:
         for image in images:
             filename = image["file_name"]
             ann = coco_utils.Annotation(self.image_dir, filename)
-            if ann.files:  # and ann.anns.get("1"):  # 存在病害的标注信息视为已经标注完成
+            if ann.finished:  # 已经标注完成
                 continue
             else:
                 # annotate this image
                 self.current_img_ann = ann  # resume annotation
-                self.annotate_image(filename)
+                # self.annotate_image(filename)
+                self.annotate_leaves(self.current_img_ann)
+
+    def annotate_leaves(self, current: coco_utils.Annotation):
+        logging.info("start annotating leave in %s", current.filename)
+        # initialize
+        leave_id = 0
+        # 使用小尺寸图片标注，记录原尺寸
+        h, w, _ = current.image.shape
+        image, _ = limit_image_size(current.image, (800, 800))
+
+        masks = []
+        while True:
+            mask, key = get_mask(
+                image,
+                predictor=self.predictor,
+                hint=self.status(),
+            )
+            logging.info("this mask get: %s", key)
+            # press: delete -> reject this mask, reannotate the image
+            # press: 'ctrl+enter' -> accept this mask, but continue annotate the image
+            # other: accept this mask and move one to the next image
+            if key != "delete" and np.any(mask):
+                masks.append(mask)
+            if key not in ["delete", "ctrl+enter"]:
+                break
+
+        if len(masks) == 0:  # no mask
+            return
+
+        key = show_result(
+            image,
+            masks,
+            (
+                f"This is the final {len(masks)} mask of this image\n"
+                f"note there already have {len(current.masks)} masks\n"
+                "press any key to continue\n"
+                "press 'delete' to reject, and move on :("
+            ),
+        )
+        # press: delete -> reject all masks
+        if key == "delete":
+            logging.warning("no mask of %s was accepted", current.filename)
+            return
+
+        # save masks
+        logging.info(
+            "%s update masks: %s + %s",
+            current.filename,
+            len(current.masks),
+            len(masks),
+        )
+        for mask in masks:
+            # resize the mask to the original image size
+            # print(1)
+            mask = coco_utils.resize_mask(mask, (w, h))
+            # print(2)
+            current.masks.append((mask, leave_id))
+        # print(3)
+        current.save_data()
+        # print(4)
+        current.visualize_masks()
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
+    )
     workdir = "dataset/images/"
     s = Annotator(
         workdir, model="vit_l", annotation=workdir + "annotation.json"
