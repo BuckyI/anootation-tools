@@ -233,7 +233,7 @@ def limit_image_size(image: np.ndarray, size: tuple) -> Tuple[np.ndarray, float]
     ratio = np.array(size) / np.array(image.shape[:2])
     scale = min(ratio.clip(min=0, max=1))
     shape = (old_shape * scale).astype(int)  # target shape
-    resized_image = cv2.resize(image, shape[-2:])  # cv2 uses (w, h)
+    resized_image = cv2.resize(image, tuple(reversed(shape)))  # cv2 uses (w, h)
     return resized_image, scale
 
 
