@@ -93,6 +93,7 @@ class Annotation:
         # init
         self.workdir = Path(dir)
         self.masksdir = self.workdir / "masks"  # store files
+        self.masksdir.mkdir(exist_ok=True)  # make sure folder exists
         self.filepath = Path(dir, filename)  # image to be annotated
         assert self.filepath.exists()
         self.filename = filename  # str
@@ -137,6 +138,11 @@ class Annotation:
             img = cv2.imread(str(self.filepath))
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             self.image = img
+        # drop all False masks
+        self.masks = [(mask, catid) for mask, catid in self.masks if np.any(mask)]
+        # delet previous mask image
+        for i in Path(self.masksdir).glob(self.filename.strip(".jpg") + "*.jpg"):
+            i.unlink()
         if self.annpath.exists():
             print("overwrite {}".format(self.annpath))
         with open(self.annpath, "wb") as f:
@@ -151,9 +157,11 @@ class Annotation:
                 str(catid),
             )
             mask2file(mask, str(path))
+            logging.info("save mask image to {}".format(path))
 
     def add_mask(self, mask, category_id):
         assert category_id in range(len(self.cat)), "category_id not in cat"
+        assert mask.shape == self.image.shape[:2], "mask shape mismatch"
         self.masks.append((mask, category_id))
 
 
