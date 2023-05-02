@@ -211,20 +211,29 @@ def image_chunks(image: np.ndarray, size: int = 100) -> Tuple[slice, np.ndarray]
             yield index, image[index]
 
 
-def resize_image(image, max_height, max_width):
+def limit_image_size(image: np.ndarray, size: tuple) -> Tuple[np.ndarray, float]:
     """
     将图片大小缩放到不超过指定的最大高度和宽度，并返回缩放比例。
+    size = (max_height, max_width)
     """
-    height, width = image.shape[:2]
-    if height > max_height or width > max_width:
-        scale = min(max_height / height, max_width / width)
-        new_height = int(height * scale)
-        new_width = int(width * scale)
-        resized_image = cv2.resize(image, (new_width, new_height))
-    else:
-        scale = 1.0
-        resized_image = image.copy()
+    # height, width, _ = image.shape
+    # if height > max_height or width > max_width:
+    #     scale = min(max_height / height, max_width / width)
+    #     new_height = int(height * scale)
+    #     new_width = int(width * scale)
+    #     resized_image = cv2.resize(image, (new_width, new_height))
+    # else:
+    #     scale = 1.0
+    #     resized_image = image.copy()
 
+    # return resized_image, scale
+
+    # 简易版代码
+    old_shape = np.array(image.shape[:2])
+    ratio = np.array(size) / np.array(image.shape[:2])
+    scale = min(ratio.clip(min=0, max=1))
+    shape = (old_shape * scale).astype(int)  # target shape
+    resized_image = cv2.resize(image, shape[-2:])  # cv2 uses (w, h)
     return resized_image, scale
 
 
@@ -292,7 +301,7 @@ class Annotator:
 
         # load image
         image = load_image(ann.filepath)
-        small_image, _ = resize_image(image, 800, 800)  # 使用小尺寸图片标注
+        small_image, _ = limit_image_size(image, (800, 800))  # 使用小尺寸图片标注
 
         # annotate
         self.current_img_ok = False
