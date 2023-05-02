@@ -13,6 +13,7 @@ from urllib.parse import urlsplit
 from pathlib import Path
 import json
 from typing import Union, Tuple, List
+import logging
 
 
 def show_points(coords, labels, ax, marker_size=375):
@@ -53,16 +54,12 @@ def show_mask(mask, ax, random_color=False):
 def show_result(image, masks: List[np.ndarray], title="") -> dict:
     "show the final mask and decide what's next"
 
-    def sett(event):
-        "press key to set next action"
-        if event.key == "enter":  # 保存并退出
-            result["img_ok"] = True
-            plt.close(fig)
-        elif event.key == "ctrl+enter":  # 保存并退出
-            result["img_ok"] = False
-            plt.close(fig)
-        elif event.key == "delete":  # 退出
-            result["mask_ok"] = False
+    def record(event):
+        """record the last keyboard event, possible keys:
+        'left', 'right', 'up', 'down', 'delete', 'enter', 'ctrl+enter', 'control'
+        """
+        if event.key in ("delete", "enter", "ctrl+enter"):
+            key_event[0] = event.key
             plt.close(fig)
 
     def on_move(event):
@@ -95,15 +92,15 @@ def show_result(image, masks: List[np.ndarray], title="") -> dict:
     }
 
     # config control action
-    result = {"mask_ok": True, "img_ok": True}
-    fig.canvas.mpl_connect("key_press_event", sett)
+    key_event = [None]
+    fig.canvas.mpl_connect("key_press_event", record)
     fig.canvas.mpl_connect("motion_notify_event", on_move)
     fig.canvas.mpl_connect(
         "button_press_event",
         lambda e: plt.close() if e.button == 2 else None,
     )
     plt.show()
-    return result
+    return key_event[0]
 
 
 def load_image(path: Union[str, Path]):
@@ -155,7 +152,15 @@ def load_model(model="vit_h"):
     return SamPredictor(sam)
 
 
-def get_mask(image: np.ndarray, predictor: SamPredictor = None, hint: str = "annotate"):
+def get_mask(
+    image: np.ndarray, predictor: SamPredictor = None, hint: str = "annotate"
+) -> Tuple[np.ndarray, str]:
+    def record(event):
+        """record the last keyboard event, possible keys:
+        'left', 'right', 'up', 'down', 'delete', 'enter', 'ctrl+enter', 'control'
+        """
+        key_event[0] = event.key
+
     if predictor is None:
         predictor = load_model("vit_h")
 
@@ -170,6 +175,10 @@ def get_mask(image: np.ndarray, predictor: SamPredictor = None, hint: str = "ann
     fig, ax = plt.subplots(figsize=(25, 14), dpi=100)
     ax.set_title(hint)
     ax.axis("off")
+
+    # record key
+    key_event = [None]  # record keyboard event
+    cid = fig.canvas.mpl_connect("key_press_event", record)
 
     while True:
         # 展示图片结果
@@ -186,8 +195,9 @@ def get_mask(image: np.ndarray, predictor: SamPredictor = None, hint: str = "ann
             fig.canvas.draw_idle()
         # 读取输入的点
         # usage: input point(s), the last one is negetive
+
         points = plt.ginput(n=-1, timeout=-1)
-        if not points:
+        if not points:  # 没有任何输入时，结束
             print("finished")
             break
         input_points.extend(points)
@@ -201,9 +211,11 @@ def get_mask(image: np.ndarray, predictor: SamPredictor = None, hint: str = "ann
             multimask_output=False,
         )
 
+    fig.canvas.mpl_disconnect(cid)
     plt.close(fig)
     # when no input_points are given, the `mask` will be None
-    return mask[0] if mask is not None else np.zeros(image.shape[:2], dtype=bool)
+    mask = mask[0] if mask is not None else np.zeros(image.shape[:2], dtype=bool)
+    return mask, key_event[0]
 
 
 def image_chunks(image: np.ndarray, size: int = 100) -> Tuple[slice, np.ndarray]:
