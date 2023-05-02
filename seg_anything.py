@@ -12,7 +12,7 @@ from tqdm import tqdm
 from urllib.parse import urlsplit
 from pathlib import Path
 import json
-from typing import Union, Tuple
+from typing import Union, Tuple, List
 
 
 def show_points(coords, labels, ax, marker_size=375):
@@ -50,7 +50,7 @@ def show_mask(mask, ax, random_color=False):
     ax.imshow(mask_image)
 
 
-def show_result(image, mask, title="") -> dict:
+def show_result(image, masks: List[np.ndarray], title="") -> dict:
     "show the final mask and decide what's next"
 
     def sett(event):
@@ -74,16 +74,19 @@ def show_result(image, mask, title="") -> dict:
                 l.set_ydata(event.ydata)
             event.inaxes.figure.canvas.draw_idle()
 
-    # resize image and mask to accelerate plotting
+    # resize image and masks to accelerate plotting
     max_h = max_w = 750
     image, _ = limit_image_size(image, (max_h, max_w))
-    mask = coco_utils.resize_mask(mask, tuple(reversed(image.shape[:2])))
+    for i, mask in enumerate(masks):
+        masks[i] = coco_utils.resize_mask(mask, tuple(reversed(image.shape[:2])))
 
     # plot
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(24.73, 10.58))
     fig.suptitle(title)
-    ax1.axis("off"), ax1.imshow(image)
-    ax2.axis("off"), ax2.imshow(image), show_mask(mask, ax2)
+    for ax in (ax1, ax2):
+        ax.axis("off"), ax.imshow(image)
+    for mask in masks:
+        show_mask(mask, ax2, random_color=True)
     # style
     style = {"color": "black", "alpha": 0.5}
     lines = {
