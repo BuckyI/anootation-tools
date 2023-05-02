@@ -30,7 +30,9 @@ def mask2file(mask: np.ndarray, path: str = "example.jpg", bool2int=True):
 
 
 def resize_mask(mask: np.ndarray, size: tuple):
-    "input the bool like mask and resize it to the given size"
+    """input the bool like mask and resize it to the given size
+    size = (w, h)
+    """
     assert mask.dtype == np.bool_, "mask must be bool"
     mask = mask.astype(np.uint8) * 255
     mask = cv2.resize(mask, size, cv2.INTER_CUBIC)
