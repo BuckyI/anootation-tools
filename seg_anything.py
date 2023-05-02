@@ -74,7 +74,12 @@ def show_result(image, mask, title="") -> dict:
                 l.set_ydata(event.ydata)
             event.inaxes.figure.canvas.draw_idle()
 
-    result = {"mask_ok": True, "img_ok": True}
+    # resize image and mask to accelerate plotting
+    max_h = max_w = 750
+    image, _ = limit_image_size(image, (max_h, max_w))
+    mask = coco_utils.resize_mask(mask, tuple(reversed(image.shape[:2])))
+
+    # plot
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(24.73, 10.58))
     fig.suptitle(title)
     ax1.axis("off"), ax1.imshow(image)
@@ -87,6 +92,7 @@ def show_result(image, mask, title="") -> dict:
     }
 
     # config control action
+    result = {"mask_ok": True, "img_ok": True}
     fig.canvas.mpl_connect("key_press_event", sett)
     fig.canvas.mpl_connect("motion_notify_event", on_move)
     fig.canvas.mpl_connect(
