@@ -291,78 +291,6 @@ class Annotator:
     def category_name(self, idx):
         return self.annotation.cats[idx]["name"]
 
-    def status(self):
-        name = self.current_img_ann.filename
-        image_ok = "finished annotation" if self.current_img_ok else "not done!"
-        mask_ok = "use this mask" if self.current_mask_ok else "drop this mask"
-        category_name = self.annotation.cats[self.current_catid]["name"]
-        return (
-            f"Annotating image: {name}\n"
-            f"Category: {category_name}\n"
-            f"Mask: {mask_ok}; \n"
-            f"Image: {image_ok};"
-        )
-
-    def annotate_image(self, filename: str):
-        def set_action(self, event):
-            "press key to set next action"
-            if event.key == "left":  # 重新标注当前 mask
-                self.current_mask_ok = False
-            elif event.key == "right":  # 使用当前 mask
-                self.current_mask_ok = True
-            elif event.key == "up":  # 更改类别
-                self.current_catid += 1
-            elif event.key == "down":  # 更改类别
-                self.current_catid -= 1
-            elif event.key == "enter":  # 继续标注本图片
-                self.current_img_ok = False
-            plt.title(self.status()), plt.draw()
-
-        # initialize
-        ann = self.current_img_ann
-        ann.masks = {i: [] for i in self.annotation.cats.keys()}
-
-        # load image
-        image = load_image(ann.filepath)
-        small_image, _ = limit_image_size(image, (800, 800))  # 使用小尺寸图片标注
-
-        # annotate
-        self.current_img_ok = False
-        while not self.current_img_ok:
-            # get mask
-            self.current_mask_ok = False
-            while not self.current_mask_ok:
-                mask = get_mask(
-                    small_image,
-                    predictor=self.predictor,
-                    hint=self.status(),
-                )
-
-                # by default, let this mask be the last mask of this image
-                self.current_mask_ok = True
-                self.current_img_ok = True
-                # confirm if mask is ok
-                plt.close()
-                plt.figure(figsize=(25.60, 14.40), dpi=100)
-                plt.title(self.status())
-                plt.imshow(small_image)
-                plt.axis("on")
-                show_mask(mask, plt.gca())
-                plt.connect(
-                    "button_press_event",
-                    lambda e: plt.close() if e.button == 2 else None,
-                )
-                plt.connect("key_press_event", lambda e: set_action(self, e))
-                plt.show()
-            else:  # finally save the good mask
-                # resize the mask to the original image size
-                size = (image.shape[1], image.shape[0])
-                mask = coco_utils.resize_mask(mask, size)
-                ann.masks[self.current_catid].append(mask)
-        else:
-            # save annotations
-            ann.save_data()
-
     def annotate_images(self):
         image_ids = self.annotation.getImgIds()
         images = self.annotation.loadImgs(image_ids)
@@ -374,8 +302,8 @@ class Annotator:
             else:
                 # annotate this image
                 self.current_img_ann = ann  # resume annotation
-                # self.annotate_image(filename)
-                self.annotate_leaves(self.current_img_ann)
+                # self.annotate_leaves(self.current_img_ann)
+                self.annotate_dots(self.current_img_ann)
 
     def annotate_leaves(self, current: coco_utils.Annotation):
         logging.info("start annotating leave in %s", current.filename)
@@ -390,7 +318,7 @@ class Annotator:
             mask, key = get_mask(
                 image,
                 predictor=self.predictor,
-                hint=self.status(),
+                hint="Annotate Leaves in %s" % current.filename,
             )
             logging.info("this mask get: %s", key)
             # press: delete -> reject this mask, reannotate the image
@@ -436,6 +364,69 @@ class Annotator:
         current.save_data()
         # print(4)
         current.visualize_masks()
+
+    def annotate_dots(self, current: coco_utils.Annotation):
+        logging.info("start annotating dots in %s", current.filename)
+        # initialize
+        dot_id = 1
+        # find all leaves, background covered
+        leaves = []
+        for mask, cat in current.masks:
+            if cat == 0:  # a leave mask
+                leave = current.image * mask[:, :, np.newaxis]
+                leaves.append(leave)
+
+        # annotate all leaves
+        for leave in leaves:
+            # Get chunk size:
+            # 1. get the `True` area span
+            # 2. get the longest size `s` (width or height)
+            # 2. let `s/3` be the chunk size
+            indices = np.where(mask)
+            h, w = np.max(indices, axis=1) - np.min(indices, axis=1) + 1
+            size = int(np.ceil(max(w / 3, h / 3)))
+
+            # split the leave into chunks
+            dot_mask = np.zeros(leave.shape[:2], dtype=bool)
+            for idx, chunk in image_chunks(leave, size):
+                if not np.any(chunk):
+                    # some chunks don't have leave part, skip them
+                    continue
+                while True:
+                    mask, key = get_mask(
+                        chunk,
+                        predictor=self.predictor,
+                        hint="Annotate Dots in %s" % current.filename,
+                    )
+                    logging.info("this mask get: %s", key)
+                    # press: delete -> reject this mask, reannotate the chunk
+                    # other: accept this mask and move one to the next chunk
+                    if key != "delete" and np.any(mask):
+                        dot_mask[idx] = mask
+                    if key != "delete":
+                        break
+            key = show_result(
+                leave,
+                [dot_mask],
+                (
+                    f"This is the final mask of  image {current.filename}\n"
+                    f"note there already have {len(current.masks)} masks\n"
+                    "press any key to continue\n"
+                    "press 'delete' to reject, and move on :("
+                ),
+            )
+            # press: delete -> reject the mask
+            if key == "delete":
+                logging.warning("reject current mask of %s", current.filename)
+                return
+
+            # save masks
+            logging.info(
+                "%s update masks: %s + 1", current.filename, len(current.masks)
+            )
+            current.masks.append((dot_mask, dot_id))
+            current.save_data()
+            current.visualize_masks()
 
 
 if __name__ == "__main__":
