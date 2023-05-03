@@ -172,9 +172,10 @@ def get_mask(
     logits = None
     mask = None
 
-    fig, ax = plt.subplots(figsize=(25, 14), dpi=100)
-    ax.set_title(hint)
-    ax.axis("off")
+    fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(25, 14), dpi=100)
+    fig.suptitle(hint)
+    for ax in (ax1, ax2):
+        ax.axis("off"), ax.imshow(image)
 
     # record key
     key_event = [None]  # record keyboard event
@@ -182,14 +183,14 @@ def get_mask(
 
     while True:
         # 展示图片结果
-        ax.cla()
-        ax.imshow(image)
+        ax2.cla()
+        ax2.axis("off"), ax2.imshow(image)
         if mask is not None:
-            show_mask(mask, ax)
+            show_mask(mask, ax2)
             show_points(
                 np.array(input_points),
                 np.array(input_labels),
-                ax,
+                ax2,
                 marker_size=80,
             )
             fig.canvas.draw_idle()
