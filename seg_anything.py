@@ -274,36 +274,79 @@ class Annotator:
         self.annotation = COCO(annotation)
         self.image_dir = image_dir
 
-        self.current_img_ann = None
-        self.current_img_ok = False
-        self.current_catid = 0
-        self.current_mask_ok = False
-
-    @property
-    def current_catid(self):
-        return self._category
-
-    @current_catid.setter
-    def current_catid(self, v):
-        keys = list(self.annotation.cats.keys())
-        self._category = keys[v % len(keys)]
-
-    def category_name(self, idx):
-        return self.annotation.cats[idx]["name"]
-
-    def annotate_images(self):
+    def annotate_images(self, visualize=True):
         image_ids = self.annotation.getImgIds()
         images = self.annotation.loadImgs(image_ids)
-        for image in images:
-            filename = image["file_name"]
+
+        current_idx = 0
+        flag = True
+        while flag:
+            filename = images[current_idx]["file_name"]
             ann = coco_utils.Annotation(self.image_dir, filename)
-            if ann.finished:  # 已经标注完成
-                continue
-            else:
-                # annotate this image
-                self.current_img_ann = ann  # resume annotation
-                # self.annotate_leaves(self.current_img_ann)
-                self.annotate_dots(self.current_img_ann)
+            logging.info("display %s" % filename)
+            key = self.display(
+                ann,
+                title=(
+                    f"Masks of {ann.filename}\n"
+                    "If annotate dots in this, press 'enter'\n"
+                    "If annotate leave in this, press 'space'\n"
+                    "'left' ← and 'right' → to change image :)\n"
+                    "'ctrl+enter' to label this image as finished\n"
+                    "'delete' to clear all masks\n"
+                    "'escape' to quit"
+                ),
+                save2file=visualize,
+            )
+
+            if key == "enter":
+                self.annotate_dots(ann)
+                current_idx += 1
+            elif key == " ":
+                self.annotate_leaves(ann)
+                current_idx += 1
+            elif key == "left":
+                current_idx -= 1
+            elif key == "right":
+                current_idx += 1
+            elif key == "ctrl+enter":
+                ann.finished = True
+                current_idx += 1
+            elif key == "delete":
+                ann.masks = []
+                ann.save_data()
+            elif key == "escape":
+                flag = False
+
+            current_idx % len(image_ids)
+
+    def display(self, current: coco_utils.Annotation, title="", save2file=False):
+        def record(event):
+            """record the last keyboard event, possible keys:
+            "enter", "left", "right", "escape", "ctrl+enter"
+            """
+            if event.key in [
+                "enter",
+                " ",
+                "left",
+                "right",
+                "ctrl+enter",
+                "delete",
+                "escape",
+            ]:
+                key_event[0] = event.key
+                plt.close(fig)
+
+        fig = current.visualize_masks(save2file)
+        fig.suptitle(title)
+
+        key_event = [None]
+        fig.canvas.mpl_connect("key_press_event", record)
+        fig.canvas.mpl_connect(
+            "button_press_event",
+            lambda e: plt.close() if e.button == 2 else None,
+        )
+        plt.show()
+        return key_event[0]
 
     def annotate_leaves(self, current: coco_utils.Annotation):
         logging.info("start annotating leave in %s", current.filename)
@@ -433,4 +476,4 @@ if __name__ == "__main__":
     s = Annotator(
         workdir, model="vit_l", annotation=workdir + "annotation.json"
     ).annotate_images()
-    coco_utils.export_COCO(workdir, dst="test_annotation.json")
+    # coco_utils.export_COCO(workdir, dst="test_annotation.json")
