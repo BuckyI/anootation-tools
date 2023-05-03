@@ -222,6 +222,7 @@ def get_mask(
 def image_chunks(image: np.ndarray, size: int = 100) -> Tuple[slice, np.ndarray]:
     """split the image into small chunks,
     yield the chunk and the slice index"""
+    assert type(size) == int
     height, width, _ = image.shape
     row_blocks = height // size + (height % size != 0)
     col_blocks = width // size + (width % size != 0)
