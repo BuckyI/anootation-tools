@@ -287,7 +287,7 @@ class Annotator:
             key = self.display(
                 ann,
                 title=(
-                    f"Masks of {ann.filename}\n"
+                    f"{ann}\n"
                     "If annotate dots in this, press 'enter'\n"
                     "If annotate leave in this, press 'space'\n"
                     "'left' ← and 'right' → to change image :)\n"

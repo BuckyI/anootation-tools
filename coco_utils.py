@@ -196,7 +196,10 @@ class Annotation:
         return masks
 
     def __str__(self):
-        return f"Annotation of {self.filename} with {len(self.masks)} masks"
+        result = f"Annotation of {self.filename} with {len(self.masks)} masks. "
+        for catid, masks in self.splitted_masks.items():
+            result += f"{len(masks)} {self.cat[catid]}s"
+        return result
 
 
 def init_COCO(image_dir, annotation_path="annotation.json", match="*.jpg"):
