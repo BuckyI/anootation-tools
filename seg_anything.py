@@ -363,7 +363,7 @@ class Annotator:
         # print(3)
         current.save_data()
         # print(4)
-        current.visualize_masks()
+        current.save_masks()
 
     def annotate_dots(self, current: coco_utils.Annotation):
         logging.info("start annotating dots in %s", current.filename)
@@ -426,7 +426,7 @@ class Annotator:
             )
             current.masks.append((dot_mask, dot_id))
             current.save_data()
-            current.visualize_masks()
+            current.save_masks()
 
 
 if __name__ == "__main__":

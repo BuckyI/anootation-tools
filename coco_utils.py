@@ -8,6 +8,7 @@ from pathlib import Path
 import datetime
 import pickle
 import logging
+import matplotlib.pyplot as plt
 
 
 def file2mask(path: str):
@@ -148,7 +149,7 @@ class Annotation:
         with open(self.annpath, "wb") as f:
             pickle.dump(self.data, f)
 
-    def visualize_masks(self):
+    def save_masks(self):
         "visualize masks into image file"
         for idx, (mask, catid) in enumerate(self.masks):
             path = self.masksdir / "{} #id {} #cat {}.jpg".format(
@@ -159,10 +160,43 @@ class Annotation:
             mask2file(mask, str(path))
             logging.info("save mask image to {}".format(path))
 
+    def visualize_masks(self, save=False) -> plt.Figure:
+        fig, ax = plt.subplots()
+        ax.imshow(self.image)
+        ax.axis("off")
+
+        # sort masks by category, so that draw order is consistent
+        for mask, catid in sorted(self.masks, key=lambda x: x[1]):
+            # fig.imshow(mask, alpha=0.5)
+            color = np.concatenate([np.random.random(3), np.array([0.6])], axis=0)
+            h, w = mask.shape[-2:]
+            mask_image = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
+            ax.imshow(mask_image)
+        if save:
+            path = self.masksdir / "{} #FINAL.jpg".format(self.filename.strip(".jpg"))
+            path = str(path)
+            fig.savefig(path)
+            logging.info("save {} to {}".format(self, path))
+        logging.info(self)
+        return fig
+
     def add_mask(self, mask, category_id):
         assert category_id in range(len(self.cat)), "category_id not in cat"
         assert mask.shape == self.image.shape[:2], "mask shape mismatch"
         self.masks.append((mask, category_id))
+
+    @property
+    def splitted_masks(self):
+        masks = {}
+        for mask, cat in self.masks:
+            if cat in masks:
+                masks[cat].append(mask)
+            else:
+                masks[cat] = [mask]
+        return masks
+
+    def __str__(self):
+        return f"Annotation of {self.filename} with {len(self.masks)} masks"
 
 
 def init_COCO(image_dir, annotation_path="annotation.json", match="*.jpg"):
