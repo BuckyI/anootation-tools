@@ -167,27 +167,28 @@ class Annotation:
             mask2file(mask, str(path))
             logging.info("save mask image to {}".format(path))
 
-    def visualize_masks(self, save=False) -> np.ndarray:
-        fig, ax = plt.subplots(frameon=False)
-        ax.imshow(self.image)
-        ax.axis("off")
+    def visualize_masks(self) -> np.ndarray:
+        "使用 cv2 简单展示标注，如果使用 matplotlib 速度会很慢，而且会有问题"
+        img = self.image.copy()
+        cover = np.zeros(self.image.shape, dtype=img.dtype)  # all masks with color
+        cover_mask = np.zeros(self.image.shape[:2], dtype=bool)  # all masks together
+        for mask, _ in sorted(self.masks, key=lambda x: x[1]):
+            cover_mask = cover_mask | mask
+            color = np.random.randint(0, 256, size=(3,)).reshape(1, 1, -1)
+            mask_image = (mask[..., None] * color).astype(img.dtype)
+            # get the overlapping area 覆盖重叠区域旧的内容
+            overlap = cv2.bitwise_and(cover, cover, mask=mask.astype(np.int8))
+            cover = cover - overlap + mask_image
+        else:
+            # 图片和标注合并在一起，保留标注下方的图片
+            overlap = cv2.bitwise_and(img, img, mask=cover_mask.astype(np.int8))
+            img = img - overlap + cv2.addWeighted(overlap, 0.4, cover, 0.6, 0)
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-        # sort masks by category, so that draw order is consistent
-        for mask, catid in sorted(self.masks, key=lambda x: x[1]):
-            # fig.imshow(mask, alpha=0.5)
-            color = np.concatenate([np.random.random(3), np.array([0.6])], axis=0)
-            h, w = mask.shape[-2:]
-            mask_image = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
-            ax.imshow(mask_image)
-        
-        fig.canvas.draw()
-        img = np.array(fig.canvas.buffer_rgba())[:, :, :3]  # remove alpha
         self.visualize = img
-        if save:
-            path = self.masksdir / "{} #FINAL.jpg".format(self.filename.strip(".jpg"))
-            path = str(path)
-            fig.savefig(path)
-            logging.info("save {} to {}".format(self, path))
+        path = self.masksdir / "{} #FINAL.jpg".format(self.filename.strip(".jpg"))
+        cv2.imwrite(str(path), img)
+        logging.info("save visualize of {} to {}".format(self, path))
         return self.visualize
 
     def add_mask(self, mask, category_id):
