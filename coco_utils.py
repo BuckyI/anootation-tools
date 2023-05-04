@@ -91,12 +91,14 @@ def parse_mask_to_coco(image_id, anno_id, image_mask, category_id):
 class Annotation:
     "used to temporarily store annotations of a single image"
 
-    def __init__(self, dir: Union[str, Path], filename: str, *, category: dict = None):
+    def __init__(
+        self, workdir: Union[str, Path], filename: str, *, category: dict = None
+    ):
         # init
-        self.workdir = Path(dir)
+        self.workdir = Path(workdir)
         self.masksdir = self.workdir / "masks"  # store files
         self.masksdir.mkdir(exist_ok=True)  # make sure folder exists
-        self.filepath = Path(dir, filename)  # image to be annotated
+        self.filepath = Path(workdir, filename)  # image to be annotated
         assert self.filepath.exists()
         self.filename = filename  # str
         self.image = None  # ndarray

@@ -310,7 +310,9 @@ class Annotator:
         flag = True
         while flag:
             filename = self.data["images"][current_idx]["file_name"]
-            ann = coco_utils.Annotation(self.image_dir, filename)
+            ann = coco_utils.Annotation(
+                self.image_dir, filename, category=self.data["categories"]
+            )
             logging.info("display %s" % filename)
             key = self.display(
                 ann,
