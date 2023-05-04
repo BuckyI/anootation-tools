@@ -10,6 +10,15 @@ import pickle
 import logging
 import matplotlib.pyplot as plt
 from typing import Union
+import threading
+
+
+def run_in_thread(func):
+    def wrapper(*args, **kwargs):
+        thread = threading.Thread(target=func, args=args, kwargs=kwargs)
+        thread.start()
+
+    return wrapper
 
 
 def file2mask(path: str):
@@ -141,6 +150,7 @@ class Annotation:
             self.visualize = img
             return None
 
+    @run_in_thread
     def save_data(self):
         if self.image is None:
             img = cv2.imread(str(self.filepath))
@@ -153,8 +163,10 @@ class Annotation:
             i.unlink()
         if self.annpath.exists():
             print("overwrite {}".format(self.annpath))
+        data = self.data
         with open(self.annpath, "wb") as f:
-            pickle.dump(self.data, f)
+            pickle.dump(data, f)
+            logging.info("save data of {} to {}".format(self, self.annpath))
 
     def save_masks(self):
         "visualize masks into image file"
