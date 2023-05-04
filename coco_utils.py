@@ -9,6 +9,7 @@ import datetime
 import pickle
 import logging
 import matplotlib.pyplot as plt
+from typing import Union
 
 
 def file2mask(path: str):
@@ -90,7 +91,7 @@ def parse_mask_to_coco(image_id, anno_id, image_mask, category_id):
 class Annotation:
     "used to temporarily store annotations of a single image"
 
-    def __init__(self, dir: str, filename: str, *, category: dict = None):
+    def __init__(self, dir: Union[str, Path], filename: str, *, category: dict = None):
         # init
         self.workdir = Path(dir)
         self.masksdir = self.workdir / "masks"  # store files
@@ -187,7 +188,7 @@ class Annotation:
 
     @property
     def splitted_masks(self):
-        masks = {i:[] for i in range(len(self.cat))}
+        masks = {i: [] for i in range(len(self.cat))}
         for mask, cat in self.masks:
             masks[cat].append(mask)
         return masks

@@ -261,27 +261,48 @@ def limit_image_size(image: np.ndarray, size: tuple) -> Tuple[np.ndarray, float]
 
 
 class Annotator:
-    def __init__(self, image_dir: str, annotation: str = None, model: str = "vit_h"):
-        # 加载模型
-        self.predictor = load_model(model)
-
-        # annotation settings
+    def __init__(self, image_dir: str, annotation: str = None, *, model: str = "vit_h"):
+        "annotation: data.pickle"
+        self.predictor = load_model(model)  # 加载模型
+        self.image_dir = Path(image_dir)
+        # load data
         if annotation is None:
-            annotation = os.path.join(image_dir, "annotation.json")
-            coco_utils.init_COCO(image_dir, annotation)
-        elif not os.path.exists(annotation):
-            coco_utils.init_COCO(image_dir, annotation)
-        self.annotation = COCO(annotation)
-        self.image_dir = image_dir
+            logging.warning(f"initalizing data... Hello!")
+            self.init_data(save=True)
+        elif not Path(annotation).exists:
+            logging.warning(f"{annotation} does not exist, created a new one")
+            self.init_data(save=True)
+        else:
+            assert annotation.endswith(".pickle"), "annotation must be a pickle file"
+            self.data = pickle.load(open(annotation, "rb"))
+
+    def init_data(self, match="*.jpg", save=True):
+        self.data = {"images": [], "categories": ["leave", "dot"]}
+        for image_id, image in enumerate(self.image_dir.glob(match)):
+            image_path = str(image)
+            height, width, channels = cv2.imread(image_path).shape
+            # 添加图像信息到 coco 数据集字典中
+            self.data["images"].append(
+                {
+                    "id": image_id,
+                    "width": width,
+                    "height": height,
+                    "file_name": image.name,
+                }
+            )
+        if save:
+            path = self.image_dir / "data.pickle"
+            if path.exists():
+                logging.warning(f"{path} already exists, removed the old one")
+            pickle.dump(self.data, open(path, "wb"))
+            logging.info("saved data to %s" % path)
 
     def annotate_images(self, visualize=True):
-        image_ids = self.annotation.getImgIds()
-        images = self.annotation.loadImgs(image_ids)
-
+        num_images = len(self.data["images"])
         current_idx = 0
         flag = True
         while flag:
-            filename = images[current_idx]["file_name"]
+            filename = self.data["images"][current_idx]["file_name"]
             ann = coco_utils.Annotation(self.image_dir, filename)
             logging.info("display %s" % filename)
             key = self.display(
@@ -317,7 +338,9 @@ class Annotator:
             elif key == "escape":
                 flag = False
 
-            current_idx % len(image_ids)
+            current_idx % num_images
+
+        logging.info("Goodbye! :)")
 
     def display(self, current: coco_utils.Annotation, title="", save2file=False):
         def record(event):
@@ -416,7 +439,7 @@ class Annotator:
             current.image * mask[:, :, np.newaxis]
             for mask in current.splitted_masks[leave_id]
         ]
-        logging.info("%s has leaves to annotate: %s", current.filename, len(leaves))
+        logging.info("%s has %s leaves to annotate", current.filename, len(leaves))
         # annotate all leaves
         for leave in leaves:
             # Get chunk size:
@@ -474,6 +497,6 @@ if __name__ == "__main__":
     )
     workdir = "dataset/images/"
     s = Annotator(
-        workdir, model="vit_l", annotation=workdir + "annotation.json"
+        workdir, model="vit_l", annotation=workdir + "data.pickle"
     ).annotate_images()
     # coco_utils.export_COCO(workdir, dst="test_annotation.json")
