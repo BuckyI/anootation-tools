@@ -200,7 +200,18 @@ class Annotation:
         return result
 
 
-def init_COCO(image_dir, annotation_path="annotation.json", match="*.jpg"):
+def export_coco_file(
+    workdir: Union[str, Path],
+    images: list,
+    categories: list,
+    filename="annotation.json",
+):
+    """Create COCO annotations from multiple pickle files
+    usage:
+    - follow the standard file structure!
+    - images, categories are from Annotator
+    """
+    workdir = Path(workdir)
     coco_data = {
         "info": {},
         "licenses": [],
@@ -230,18 +241,13 @@ def init_COCO(image_dir, annotation_path="annotation.json", match="*.jpg"):
     ]
 
     # images
-    images = list(Path(image_dir).glob(match))
-    for image_id, image in enumerate(images):
-        # 获取图像信息
-        image_path = str(image)
-        height, width, channels = cv2.imread(image_path).shape
-        # 添加图像信息到 coco 数据集字典中
+    for img in images:
         coco_data["images"].append(
             {
-                "id": image_id,
-                "width": width,
-                "height": height,
-                "file_name": image.name,
+                "id": img["id"],
+                "width": img["width"],
+                "height": img["height"],
+                "file_name": img["file_name"],
                 "license": None,
                 "url": None,
                 "date_captured": None,
@@ -250,50 +256,28 @@ def init_COCO(image_dir, annotation_path="annotation.json", match="*.jpg"):
 
     # categories
     coco_data["categories"] = [
-        {
-            "id": 0,
-            "name": "leave",
-            "supercategory": None,
-        },
-        {
-            "id": 1,
-            "name": "dot",
-            "supercategory": None,
-        },
+        {"id": i, "name": name, "supercategory": None}
+        for i, name in enumerate(categories)
     ]
 
-    if os.path.exists(annotation_path):
-        print("already exists, removed the old one")
-    json.dump(coco_data, open(annotation_path, "w"))
-
-
-def export_COCO(dir, scr="annotation.json", dst="annotation.json"):
-    """merge annotations from multiple pickle files
-    NOTE: follow the standard file structure!
-    """
-    # load annotation file
-    scr_file = os.path.join(dir, scr)
-    data = json.load(open(scr_file, "r"))
-    annotations = data["annotations"]
-    assert len(annotations) == 0, f"{scr_file} have annotations, check it"
-
     # get annotations from mask images
-    for image in data["images"]:
+    for image in coco_data["images"]:
         name = image["file_name"]
-
-        anns = Annotation(dir, name)
+        anns = Annotation(workdir, name)
         if not anns.masks:
             logging.error("no mask in {}".format(name))
             continue
         for mask, catid in anns.masks:
             annotation = parse_mask_to_coco(
                 image_id=image["id"],
-                anno_id=len(annotations),
+                anno_id=len(coco_data["annotations"]),
                 image_mask=mask,
                 category_id=catid,
             )
-            annotations.append(annotation)
-    else:
-        # data['annotations'] = annotations
-        dst_file = os.path.join(dir, dst)
-        json.dump(data, open(dst_file, "w"))
+            coco_data["annotations"].append(annotation)
+
+    path = workdir / filename
+    if path.exists():
+        logging.warning("%s already exists, removed the old one", path)
+    json.dump(coco_data, open(path, "w"))
+    logging.info("coco annotation file saved to {}".format(path))
