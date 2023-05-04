@@ -195,10 +195,11 @@ class Annotation:
             # 图片和标注合并在一起，保留标注下方的图片
             overlap = cv2.bitwise_and(img, img, mask=cover_mask.astype(np.int8))
             img = img - overlap + cv2.addWeighted(overlap, 0.4, cover, 0.6, 0)
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
         self.visualize = img
         path = self.masksdir / "{} #FINAL.jpg".format(self.filename.strip(".jpg"))
+        # opencv 使用 BGR 处理图片，因此保存时转换一下，否则颜色不对
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         cv2.imwrite(str(path), img)
         logging.info("save visualize of {} to {}".format(self, path))
         return self.visualize
