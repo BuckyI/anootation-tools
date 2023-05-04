@@ -263,7 +263,8 @@ def limit_image_size(image: np.ndarray, size: tuple) -> Tuple[np.ndarray, float]
 class Annotator:
     def __init__(self, image_dir: str, annotation: str = None, *, model: str = "vit_h"):
         "annotation: data.pickle"
-        self.predictor = load_model(model)  # 加载模型
+        self.modeltype = model
+        self._predictor = None  # lazy load predictor
         self.image_dir = Path(image_dir)
         # load data
         if annotation is None:
@@ -275,6 +276,12 @@ class Annotator:
         else:
             assert annotation.endswith(".pickle"), "annotation must be a pickle file"
             self.data = pickle.load(open(annotation, "rb"))
+
+    @property
+    def predictor(self):
+        if self._predictor is None:
+            self._predictor = load_model(self.modeltype)
+        return self._predictor
 
     def init_data(self, match="*.jpg", save=True):
         self.data = {"images": [], "categories": ["leave", "dot"]}
