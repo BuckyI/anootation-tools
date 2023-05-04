@@ -187,12 +187,9 @@ class Annotation:
 
     @property
     def splitted_masks(self):
-        masks = {}
+        masks = {i:[] for i in range(len(self.cat))}
         for mask, cat in self.masks:
-            if cat in masks:
-                masks[cat].append(mask)
-            else:
-                masks[cat] = [mask]
+            masks[cat].append(mask)
         return masks
 
     def __str__(self):
