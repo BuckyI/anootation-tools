@@ -368,8 +368,9 @@ class Annotator:
                 key_event[0] = event.key
                 plt.close(fig)
 
-        fig = current.visualize_masks(save2file)
-        fig.suptitle(title)
+        fig, ax = plt.subplots()
+        fig.suptitle(title), ax.axis("off")
+        ax.imshow(current.visualize)
 
         key_event = [None]
         fig.canvas.mpl_connect("key_press_event", record)

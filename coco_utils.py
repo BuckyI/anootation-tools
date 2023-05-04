@@ -105,6 +105,7 @@ class Annotation:
         self.finished = False  # bool
         self.cat = category if category else ["leave", "dot"]  # list of str
         self.masks = []  # list of (ndarray, category_id)
+        self.visualize = None  # ndarray (h, w, 3)
 
         # load previous annotation
         self.name = self.filepath.stem
@@ -119,6 +120,7 @@ class Annotation:
             "finished": self.finished,
             "category": self.cat,
             "masks": self.masks,
+            "visualize": self.visualize_masks(),
         }
 
     def load_data(self):
@@ -130,11 +132,13 @@ class Annotation:
             self.finished = data["finished"]
             self.cat = data["category"]
             self.masks = data["masks"]
+            self.visualize = data["visualize"]
             return data
         else:
             img = cv2.imread(str(self.filepath))
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             self.image = img
+            self.visualize = img
             return None
 
     def save_data(self):
@@ -163,8 +167,8 @@ class Annotation:
             mask2file(mask, str(path))
             logging.info("save mask image to {}".format(path))
 
-    def visualize_masks(self, save=False) -> plt.Figure:
-        fig, ax = plt.subplots()
+    def visualize_masks(self, save=False) -> np.ndarray:
+        fig, ax = plt.subplots(frameon=False)
         ax.imshow(self.image)
         ax.axis("off")
 
@@ -175,13 +179,16 @@ class Annotation:
             h, w = mask.shape[-2:]
             mask_image = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
             ax.imshow(mask_image)
+        
+        fig.canvas.draw()
+        img = np.array(fig.canvas.buffer_rgba())[:, :, :3]  # remove alpha
+        self.visualize = img
         if save:
             path = self.masksdir / "{} #FINAL.jpg".format(self.filename.strip(".jpg"))
             path = str(path)
             fig.savefig(path)
             logging.info("save {} to {}".format(self, path))
-        logging.info(self)
-        return fig
+        return self.visualize
 
     def add_mask(self, mask, category_id):
         assert category_id in range(len(self.cat)), "category_id not in cat"
