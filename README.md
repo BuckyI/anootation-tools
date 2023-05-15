@@ -41,3 +41,23 @@ graph LR
 ## 数据集
 
 1-634 缺少 122，一共 633 个
+
+## 数据集类型转化
+
+> below are transform labelme annotation to coco style, don't use it anymore.
+
+- create labels.txt
+
+    ```
+    __ignore__
+    date
+    fig
+    hazelnut
+    ```
+
+- `conda activate labelme`
+- `python labelme_to_coco.py --labels data/nuts/images/labels.txt data/nuts/images data/nuts --noviz`
+
+or: run `labelme2coco.py` (more simple, might error)
+
+> path formate is different, be careful
