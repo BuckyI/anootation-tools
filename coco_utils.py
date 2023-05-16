@@ -11,6 +11,7 @@ import logging
 import matplotlib.pyplot as plt
 from typing import Union
 import threading
+from typing import Union, Tuple, List
 
 
 def run_in_thread(func):
@@ -48,6 +49,32 @@ def resize_mask(mask: np.ndarray, size: tuple):
     mask = mask.astype(np.uint8) * 255
     mask = cv2.resize(mask, size, cv2.INTER_CUBIC)
     return mask > 0
+
+
+def limit_image_size(image: np.ndarray, size: tuple) -> Tuple[np.ndarray, float]:
+    """
+    将图片大小缩放到不超过指定的最大高度和宽度，并返回缩放比例。
+    size = (max_height, max_width)
+    """
+    # height, width, _ = image.shape
+    # if height > max_height or width > max_width:
+    #     scale = min(max_height / height, max_width / width)
+    #     new_height = int(height * scale)
+    #     new_width = int(width * scale)
+    #     resized_image = cv2.resize(image, (new_width, new_height))
+    # else:
+    #     scale = 1.0
+    #     resized_image = image.copy()
+
+    # return resized_image, scale
+
+    # 简易版代码
+    old_shape = np.array(image.shape[:2])
+    ratio = np.array(size) / np.array(image.shape[:2])
+    scale = min(ratio.clip(min=0, max=1))
+    shape = (old_shape * scale).astype(int)  # target shape
+    resized_image = cv2.resize(image, tuple(reversed(shape)))  # cv2 uses (w, h)
+    return resized_image, scale
 
 
 def morph_close(mask: np.ndarray, size=5, iterations=5):
