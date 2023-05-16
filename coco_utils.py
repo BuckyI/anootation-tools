@@ -243,15 +243,6 @@ class Annotation:
             masks[cat].append(mask)
         return masks
 
-    def get_small_version(self, size: tuple = (1000, 1000)):
-        "sometimes the image could be too big to train. use this only when you know what you are doing"
-        image, scale = limit_image_size(self.image, size)
-        masks = [
-            (resize_mask(mask, tuple(image.shape[1::-1])) if scale != 1 else mask, cat)
-            for mask, cat in self.masks
-        ]
-        return image, masks
-
     def __str__(self):
         result = f"Annotation of {self.filename} with {len(self.masks)} masks. "
         for catid, masks in self.splitted_masks.items():
@@ -333,11 +324,23 @@ def export_coco_file(
         if size_limit is None:
             masks = anns.masks
         else:
-            img, masks = anns.get_small_version(size_limit)
+            # get resized img
+            img, scale = limit_image_size(anns.image, size_limit)
+            h, w, _ = img.shape
+            image["height"], image["width"] = h, w  # update coco data
+            # save resized img
             img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
             export_dir = workdir / "limited"
             export_dir.mkdir(exist_ok=True)
             cv2.imwrite(str(export_dir / name), img)
+            # get resized masks
+            masks = [
+                (
+                    resize_mask(mask, (w, h)) if scale != 1 else mask,
+                    cat,
+                )
+                for mask, cat in anns.masks
+            ]
 
         for mask, catid in masks:
             annotation = parse_mask_to_coco(
