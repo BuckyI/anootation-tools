@@ -243,6 +243,15 @@ class Annotation:
             masks[cat].append(mask)
         return masks
 
+    def get_small_version(self, size: tuple = (1000, 1000)):
+        "sometimes the image could be too big to train. use this only when you know what you are doing"
+        image, scale = limit_image_size(self.image, size)
+        masks = [
+            (resize_mask(mask, tuple(image.shape[1::-1])) if scale != 1 else mask, cat)
+            for mask, cat in self.masks
+        ]
+        return image, masks
+
     def __str__(self):
         result = f"Annotation of {self.filename} with {len(self.masks)} masks. "
         for catid, masks in self.splitted_masks.items():
@@ -255,11 +264,13 @@ def export_coco_file(
     images: list,
     categories: list,
     filename="annotation.json",
+    size_limit=None,
 ):
     """Create COCO annotations from multiple pickle files
     usage:
     - follow the standard file structure!
     - images, categories are from Annotator
+    - size_limit: sometimes, the image shape could be too big to be utilized, limit it!
     """
     workdir = Path(workdir)
     coco_data = {
@@ -312,12 +323,23 @@ def export_coco_file(
 
     # get annotations from mask images
     for image in coco_data["images"]:
-        name = image["file_name"]
-        anns = Annotation(workdir, name)
+        filename = image["file_name"]
+        anns = Annotation(workdir, filename)
         if not anns.masks:
-            logging.error("no mask in {}".format(name))
+            logging.error("no mask in {}".format(filename))
             continue
-        for mask, catid in anns.masks:
+
+        # if limit size, then preprocess annotation
+        if size_limit is None:
+            masks = anns.masks
+        else:
+            img, masks = anns.get_small_version(size_limit)
+            img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+            export_dir = workdir / "limited"
+            export_dir.mkdir(exist_ok=True)
+            cv2.imwrite(str(export_dir / filename), img)
+
+        for mask, catid in masks:
             annotation = parse_mask_to_coco(
                 image_id=image["id"],
                 anno_id=len(coco_data["annotations"]),
