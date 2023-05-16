@@ -318,7 +318,6 @@ def export_coco_file(
         anns = Annotation(workdir, name)
         if not anns.masks:
             logging.error("no mask in {}".format(name))
-            continue
 
         # if limit size, then preprocess annotation
         if size_limit is None:
