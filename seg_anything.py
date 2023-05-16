@@ -500,13 +500,20 @@ class Annotator:
                 current.masks.append((dot_mask, dot_id))
                 current.save_data()
 
+    def export(self):
+        coco_utils.export_coco_file(
+            self.image_dir,
+            images=self.data["images"],
+            categories=self.data["categories"],
+        )
+        logging.info("export to %s", self.image_dir)
+
 
 if __name__ == "__main__":
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
     )
     workdir = "dataset/images/"
-    s = Annotator(
-        workdir, model="vit_l", annotation=workdir + "data.pickle"
-    ).annotate_images()
-    # coco_utils.export_COCO(workdir, dst="test_annotation.json")
+    s = Annotator(workdir, model="vit_l", annotation=workdir + "data.pickle")
+    # s.annotate_images()
+    s.export()
