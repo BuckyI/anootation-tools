@@ -480,6 +480,7 @@ class Annotator:
             self.image_dir,
             images=self.data["images"],
             categories=self.data["categories"],
+            size_limit=(1000, 1000),
         )
         logging.info("export to %s", self.image_dir)
 

@@ -323,10 +323,10 @@ def export_coco_file(
 
     # get annotations from mask images
     for image in coco_data["images"]:
-        filename = image["file_name"]
-        anns = Annotation(workdir, filename)
+        name = image["file_name"]
+        anns = Annotation(workdir, name)
         if not anns.masks:
-            logging.error("no mask in {}".format(filename))
+            logging.error("no mask in {}".format(name))
             continue
 
         # if limit size, then preprocess annotation
@@ -337,7 +337,7 @@ def export_coco_file(
             img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
             export_dir = workdir / "limited"
             export_dir.mkdir(exist_ok=True)
-            cv2.imwrite(str(export_dir / filename), img)
+            cv2.imwrite(str(export_dir / name), img)
 
         for mask, catid in masks:
             annotation = parse_mask_to_coco(
