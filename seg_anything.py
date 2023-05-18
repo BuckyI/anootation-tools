@@ -475,12 +475,23 @@ class Annotator:
                 current.masks.append((dot_mask, dot_id))
                 current.save_data()
 
-    def export(self):
+    def export(self, selection: list = [], **kwargs):
+        """
+        export annotation as coco formate
+        - selection: choose only some images to export
+        - size_limit: limit the image size
+        - export_dir: save the output result to this path
+        eg: export(selection=[], size_limit=(1024, 1024), dest="limited")
+        """
+        images = self.data["images"]
+        if len(selection):
+            images = [img for img in images if img["file_name"] in selection]
+
         coco_utils.export_coco_file(
             self.image_dir,
-            images=self.data["images"],
+            images=images,
             categories=self.data["categories"],
-            size_limit=(1000, 1000),
+            **kwargs,
         )
         logging.info("export to %s", self.image_dir)
 
@@ -492,4 +503,9 @@ if __name__ == "__main__":
     workdir = "dataset/images/"
     s = Annotator(workdir, model="vit_l", annotation=workdir + "data.pickle")
     # s.annotate_images()
-    s.export()
+    s.export(
+        selection=[],
+        export_dir="limited",
+        size_limit=(1024, 1024),
+        required_catid=1,
+    )
