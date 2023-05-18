@@ -493,7 +493,6 @@ class Annotator:
             categories=self.data["categories"],
             **kwargs,
         )
-        logging.info("export to %s", self.image_dir)
 
 
 if __name__ == "__main__":
