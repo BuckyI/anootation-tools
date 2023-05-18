@@ -254,16 +254,21 @@ def export_coco_file(
     workdir: Union[str, Path],
     images: list,
     categories: list,
-    filename="annotation.json",
-    size_limit=None,
+    export_dir: Union[str, Path] = "export",
+    size_limit: tuple = None,
+    required_catid: int = None,
 ):
     """Create COCO annotations from multiple pickle files
     usage:
     - follow the standard file structure!
-    - images, categories are from Annotator
+    - images, categories are from Annotator, based on which to find corresponding annotations
     - size_limit: sometimes, the image shape could be too big to be utilized, limit it!
+    - required_catid: filter out images without specified catid
     """
     workdir = Path(workdir)
+    export_dir = Path(export_dir)
+    export_dir.mkdir(exist_ok=True)
+
     coco_data = {
         "info": {},
         "licenses": [],
@@ -292,13 +297,42 @@ def export_coco_file(
         }
     ]
 
+    # categories
+    coco_data["categories"] = [
+        {"id": i, "name": name, "supercategory": None}
+        for i, name in enumerate(categories)
+    ]
+
     # images
     for img in images:
+        anns = Annotation(workdir, img["file_name"])
+
+        # filter images
+        if not anns.masks:
+            logging.warning("skip image {}: no mask".format(img["file_name"]))
+            continue
+        elif required_catid is not None and not any(
+            catid == required_catid for _, catid in anns.masks
+        ):
+            logging.warning(
+                "skip image {}: no required category {}".format(
+                    img["file_name"], required_catid
+                )
+            )
+            continue
+
+        # process & save images (files and coco)
+        img, scale = anns.image, 1  # no process by default
+        if size_limit is not None:  # or save limited version
+            img, scale = limit_image_size(anns.image, size_limit)
+        h, w, _ = img.shape
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+        cv2.imwrite(str(export_dir / img["file_name"]), img)
         coco_data["images"].append(
             {
                 "id": img["id"],
-                "width": img["width"],
-                "height": img["height"],
+                "width": w,
+                "height": h,
                 "file_name": img["file_name"],
                 "license": None,
                 "url": None,
@@ -306,52 +340,22 @@ def export_coco_file(
             }
         )
 
-    # categories
-    coco_data["categories"] = [
-        {"id": i, "name": name, "supercategory": None}
-        for i, name in enumerate(categories)
-    ]
-
-    # get annotations from mask images
-    for image in coco_data["images"]:
-        name = image["file_name"]
-        anns = Annotation(workdir, name)
-        if not anns.masks:
-            logging.error("no mask in {}".format(name))
-
-        # if limit size, then preprocess annotation
-        if size_limit is None:
+        # process & save segmentation (coco)
+        if scale == 1:
             masks = anns.masks
         else:
-            # get resized img
-            img, scale = limit_image_size(anns.image, size_limit)
-            h, w, _ = img.shape
-            image["height"], image["width"] = h, w  # update coco data
-            # save resized img
-            img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-            export_dir = workdir / "limited"
-            export_dir.mkdir(exist_ok=True)
-            cv2.imwrite(str(export_dir / name), img)
-            # get resized masks
-            masks = [
-                (
-                    resize_mask(mask, (w, h)) if scale != 1 else mask,
-                    cat,
-                )
-                for mask, cat in anns.masks
-            ]
-
+            masks = [(resize_mask(mask, (w, h)), cat) for mask, cat in anns.masks]
         for mask, catid in masks:
             annotation = parse_mask_to_coco(
-                image_id=image["id"],
+                image_id=img["id"],
                 anno_id=len(coco_data["annotations"]),
                 image_mask=mask,
                 category_id=catid,
             )
             coco_data["annotations"].append(annotation)
 
-    path = workdir / filename
-    if path.exists():
-        logging.warning("%s already exists, removed the old one", path)
-    json.dump(coco_data, open(path, "w"))
-    logging.info("coco annotation file saved to {}".format(path))
+    annotation_path = export_dir / "annotation.json"
+    if annotation_path.exists():
+        logging.warning("%s already exists, removed the old one", annotation_path)
+    json.dump(coco_data, open(annotation_path, "w"))
+    logging.info("coco annotation file saved to {}".format(annotation_path))
