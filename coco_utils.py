@@ -304,19 +304,19 @@ def export_coco_file(
     ]
 
     # images
-    for img in images:
-        anns = Annotation(workdir, img["file_name"])
+    for image in images:
+        anns = Annotation(workdir, image["file_name"])
 
         # filter images
         if not anns.masks:
-            logging.warning("skip image {}: no mask".format(img["file_name"]))
+            logging.warning("skip image {}: no mask".format(image["file_name"]))
             continue
         elif required_catid is not None and not any(
             catid == required_catid for _, catid in anns.masks
         ):
             logging.warning(
                 "skip image {}: no required category {}".format(
-                    img["file_name"], required_catid
+                    image["file_name"], required_catid
                 )
             )
             continue
@@ -327,13 +327,13 @@ def export_coco_file(
             img, scale = limit_image_size(anns.image, size_limit)
         h, w, _ = img.shape
         img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-        cv2.imwrite(str(export_dir / img["file_name"]), img)
+        cv2.imwrite(str(export_dir / image["file_name"]), img)
         coco_data["images"].append(
             {
-                "id": img["id"],
+                "id": image["id"],
                 "width": w,
                 "height": h,
-                "file_name": img["file_name"],
+                "file_name": image["file_name"],
                 "license": None,
                 "url": None,
                 "date_captured": None,
@@ -347,7 +347,7 @@ def export_coco_file(
             masks = [(resize_mask(mask, (w, h)), cat) for mask, cat in anns.masks]
         for mask, catid in masks:
             annotation = parse_mask_to_coco(
-                image_id=img["id"],
+                image_id=image["id"],
                 anno_id=len(coco_data["annotations"]),
                 image_mask=mask,
                 category_id=catid,
