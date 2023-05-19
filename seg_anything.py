@@ -501,7 +501,7 @@ class Annotator:
         - selection: choose only some images to export
         - size_limit: limit the image size
         - export_dir: save the output result to this path
-        eg: export(selection=[], size_limit=(1024, 1024), dest="limited")
+        eg: export(selection=[], size_limit=(1024, 1024), export_dir="limited")
         """
         images = self.data["images"]
         if len(selection):
@@ -514,6 +514,36 @@ class Annotator:
             **kwargs,
         )
 
+    def export_train_test(
+        self,
+        train: list = [],
+        test: list = [],
+        dest: str = ".",
+        size_limit: tuple = (1024, 1024),
+        required_catid: int = None,
+    ):
+        if not train:  # not specified, include all then
+            train = [img["file_name"] for img in self.data["images"]]
+        trainset = [img for img in self.data["images"] if img["file_name"] in train]
+        # drop imgs in test set
+        trainset = [img for img in trainset if img["file_name"] not in test]
+        coco_utils.export_coco_file(
+            self.image_dir,
+            images=trainset,
+            categories=self.data["categories"],
+            export_dir=f"{dest}/train",
+            required_catid=required_catid,
+        )
+        testset = [img for img in self.data["images"] if img["file_name"] in test]
+        coco_utils.export_coco_file(
+            self.image_dir,
+            images=testset,
+            categories=self.data["categories"],
+            export_dir=f"{dest}/test",
+            size_limit=size_limit,
+            required_catid=required_catid,
+        )
+
 
 if __name__ == "__main__":
     logging.basicConfig(
@@ -522,9 +552,11 @@ if __name__ == "__main__":
     workdir = "dataset/images/"
     s = Annotator(workdir, model="vit_l", annotation=workdir + "data.pickle")
     # s.annotate_images(split=False)
-    s.export(
-        selection=[],
-        export_dir="dataset/sementic",
-        size_limit=None,
+    test = [4, 12, 13, 14, 15, 17, 18, 19, 21, 22, 29, 49, 84, 123, 129, 132, 152, 155]
+    test = [f"10041_{i:08}.jpg" for i in test]
+    s.export_train_test(
+        train=[],
+        test=test,
+        dest="dataset/sementic_v2",
         required_catid=1,
     )

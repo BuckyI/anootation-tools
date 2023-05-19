@@ -267,7 +267,7 @@ def export_coco_file(
     """
     workdir = Path(workdir)
     export_dir = Path(export_dir)
-    export_dir.mkdir(exist_ok=True)
+    export_dir.mkdir(parents=True, exist_ok=True)
 
     coco_data = {
         "info": {},
