@@ -279,7 +279,7 @@ class Annotator:
             pickle.dump(self.data, open(path, "wb"))
             logging.info("saved data to %s" % path)
 
-    def annotate_images(self, visualize=True):
+    def annotate_images(self, visualize=True, split=False):
         num_images = len(self.data["images"])
         current_idx = 0
         flag = True
@@ -304,7 +304,7 @@ class Annotator:
             )
 
             if key == "enter":
-                self.annotate_dots(ann)
+                self.annotate_dots(ann, split)
                 current_idx += 1
             elif key == " ":
                 self.annotate_leaves(ann)
@@ -415,18 +415,8 @@ class Annotator:
                 current.masks.append((mask, leave_id))
             current.save_data()
 
-    def annotate_dots(self, current: coco_utils.Annotation):
-        logging.info("start annotating dots in %s", current.filename)
-        # initialize
-        leave_id, dot_id = 0, 1
-        # find all leaves, background covered
-        leaves = [
-            current.image * mask[:, :, np.newaxis]
-            for mask in current.splitted_masks[leave_id]
-        ]
-        logging.info("%s has %s leaves to annotate", current.filename, len(leaves))
-        # annotate all leaves
-        for leave in leaves:
+    def annotate_dots(self, current: coco_utils.Annotation, split=False):
+        def split_mask_leave(leave):
             # Get chunk size:
             # 1. get the span of area containing leave
             # 2. get the longest size `s` (width or height)
@@ -452,6 +442,36 @@ class Annotator:
                     # other: accept this mask and move one to the next chunk
                     if key != "delete" and np.any(mask):
                         dot_mask[idx] = mask
+                    if key != "delete":
+                        break
+            return dot_mask
+
+        logging.info("start annotating dots in %s", current.filename)
+        # initialize
+        leave_id, dot_id = 0, 1
+        # find all leaves, background covered
+        leaves = [
+            current.image * mask[:, :, np.newaxis]
+            for mask in current.splitted_masks[leave_id]
+        ]
+        logging.info("%s has %s leaves to annotate", current.filename, len(leaves))
+        # annotate all leaves
+        for leave in leaves:
+            if split:
+                dot_mask = split_mask_leave(leave)
+            else:
+                dot_mask = np.zeros(leave.shape[:2], dtype=bool)
+                while True:
+                    mask, key = get_mask(
+                        leave,
+                        predictor=self.predictor,
+                        hint="Annotate Dots in %s" % current.filename,
+                    )
+                    logging.info("this mask get: %s", key)
+                    # press: delete -> reject this mask, reannotate the chunk
+                    # other: accept this mask and move one to the next chunk
+                    if key != "delete" and np.any(mask):
+                        dot_mask = mask
                     if key != "delete":
                         break
             logging.info("get a dots mask of %s", current.filename)
@@ -501,10 +521,10 @@ if __name__ == "__main__":
     )
     workdir = "dataset/images/"
     s = Annotator(workdir, model="vit_l", annotation=workdir + "data.pickle")
-    # s.annotate_images()
+    # s.annotate_images(split=False)
     s.export(
         selection=[],
-        export_dir="limited",
-        size_limit=(1024, 1024),
+        export_dir="dataset/sementic",
+        size_limit=None,
         required_catid=1,
     )
