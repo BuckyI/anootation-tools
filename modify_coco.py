@@ -117,7 +117,7 @@ def main(img_prefix, work_dir, annFile, test_set=[], size_limit=(1024, 1024)):
     coco = COCO(annFile)
     data = dict()
 
-    # load requred imgs (with cat 1 'dots')
+    # load requred imgs (with cat 1 'dot')
     annotated_imgs = coco.getImgIds(catIds=[1])
     annotated_imgs = coco.loadImgs(annotated_imgs)
     for i, img in enumerate(annotated_imgs):
@@ -126,7 +126,7 @@ def main(img_prefix, work_dir, annFile, test_set=[], size_limit=(1024, 1024)):
         annIds = coco.getAnnIds(imgIds=img["id"], catIds=coco.getCatIds())
         anns = coco.loadAnns(annIds)
         data[filename] = anns
-    logging.info("%s imgs with annotation 'dots' are loaded", len(annotated_imgs))
+    logging.info("%s imgs with annotation 'dot' are loaded", len(annotated_imgs))
 
     # process train & test dataset
     train_dir = work_dir + "train/"
@@ -164,14 +164,14 @@ def main(img_prefix, work_dir, annFile, test_set=[], size_limit=(1024, 1024)):
     export_coco_file(
         train_dir,
         {image: data[image] for image in train_set},
-        categories=["leave", "dots"],
+        categories=["leave", "dot"],
         path=train_dir + "annotation.json",
     )
     logging.info("exporting test set")
     export_coco_file(
         test_dir,
         {image: data[image] for image in test_set},
-        categories=["leave", "dots"],
+        categories=["leave", "dot"],
         path=test_dir + "annotation.json",
     )
 
