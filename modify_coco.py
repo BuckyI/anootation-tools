@@ -144,7 +144,12 @@ def main(img_prefix, work_dir, annFile, test_set=[], size_limit=(1024, 1024)):
         img = cv2.imread(img_path)
 
         if filename in train_set:
+            img, scale = limit_image_size(img, size_limit)
             cv2.imwrite(train_dir + filename, img)
+            if scale != 1:  # modify sementation size
+                for ann in annotations:
+                    seg = ann["segmentation"]
+                    seg[0] = [scale * x for x in seg[0]]
         elif filename in test_set:
             # limit size (big picture -> OOM)
             img, scale = limit_image_size(img, size_limit)
@@ -199,8 +204,8 @@ if __name__ == "__main__":
         "10041_00000155.jpg",
     ]
     main(
-        img_prefix="dataset/polygon/",
-        work_dir="dataset/polygon/output/",
-        annFile="dataset/polygon/annotation.json",
+        img_prefix="dataset/polygon_original/",
+        work_dir="dataset/polygon_limited/",
+        annFile="dataset/polygon_original/annotation.json",
         test_set=test_set,
     )
